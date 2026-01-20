@@ -1,0 +1,360 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # DATABASES
+  # =============================================================================
+  mysql:
+    image: mysql:8.0
+    container_name: boardroom-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: boardroom
+      MYSQL_USER: boardroom
+      MYSQL_PASSWORD: boardroom
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - boardroom-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: boardroom-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - boardroom-network
+
+  # =============================================================================
+  # VECTOR DATABASE
+  # =============================================================================
+  milvus-etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: boardroom-milvus-etcd
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - milvus_etcd:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls=http://0.0.0.0:2379 --data-dir /etcd
+    networks:
+      - boardroom-network
+
+  milvus-minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    container_name: boardroom-milvus-minio
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    volumes:
+      - milvus_minio:/minio_data
+    command: minio server /minio_data --console-address ":9001"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - boardroom-network
+
+  milvus:
+    image: milvusdb/milvus:v2.3.3
+    container_name: boardroom-milvus
+    command: [ "milvus", "run", "standalone" ]
+    environment:
+      ETCD_ENDPOINTS: milvus-etcd:2379
+      MINIO_ADDRESS: milvus-minio:9000
+    volumes:
+      - milvus_data:/var/lib/milvus
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    depends_on:
+      - milvus-etcd
+      - milvus-minio
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9091/healthz" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - boardroom-network
+
+  # =============================================================================
+  # MESSAGE QUEUE
+  # =============================================================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: boardroom-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+    networks:
+      - boardroom-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: boardroom-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    depends_on:
+      - zookeeper
+    networks:
+      - boardroom-network
+
+  # =============================================================================
+  # OBJECT STORAGE
+  # =============================================================================
+  minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    container_name: boardroom-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - boardroom-network
+
+  # =============================================================================
+  # BACKEND SERVICES
+  # =============================================================================
+  agent-service:
+    build:
+      context: ./backend
+      dockerfile: agent-service/Dockerfile
+    container_name: boardroom-agent-service
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=mysql+pymysql://boardroom:boardroom@mysql:3306/boardroom
+      - REDIS_URL=redis://redis:6379/0
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+    networks:
+      - boardroom-network
+
+  orchestrator-service:
+    build:
+      context: ./backend
+      dockerfile: orchestrator-service/Dockerfile
+    container_name: boardroom-orchestrator-service
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE_URL=mysql+pymysql://boardroom:boardroom@mysql:3306/boardroom
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - boardroom-network
+
+  connector-service:
+    build:
+      context: ./backend
+      dockerfile: connector-service/Dockerfile
+    container_name: boardroom-connector-service
+    ports:
+      - "8003:8003"
+    environment:
+      - DATABASE_URL=mysql+pymysql://boardroom:boardroom@mysql:3306/boardroom
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - boardroom-network
+
+  audit-service:
+    build:
+      context: ./backend
+      dockerfile: audit-service/Dockerfile
+    container_name: boardroom-audit-service
+    ports:
+      - "8004:8004"
+    environment:
+      - DATABASE_URL=mysql+pymysql://boardroom:boardroom@mysql:3306/boardroom
+      - MINIO_ENDPOINT=minio:9000
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - boardroom-network
+
+  auth-service:
+    build:
+      context: ./backend
+      dockerfile: auth-service/Dockerfile
+    container_name: boardroom-auth-service
+    ports:
+      - "8005:8005"
+    environment:
+      - DATABASE_URL=mysql+pymysql://boardroom:boardroom@mysql:3306/boardroom
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - boardroom-network
+
+  admin-service:
+    build:
+      context: ./backend
+      dockerfile: admin-service/Dockerfile
+    container_name: boardroom-admin-service
+    ports:
+      - "8006:8006"
+    environment:
+      - DATABASE_URL=mysql+pymysql://boardroom:boardroom@mysql:3306/boardroom
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - boardroom-network
+
+  billing-service:
+    build:
+      context: ./backend
+      dockerfile: billing-service/Dockerfile
+    container_name: boardroom-billing-service
+    ports:
+      - "8007:8007"
+    environment:
+      - DATABASE_URL=mysql+pymysql://boardroom:boardroom@mysql:3306/boardroom
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - boardroom-network
+
+  pdf-service:
+    build:
+      context: ./backend
+      dockerfile: pdf-service/Dockerfile
+    container_name: boardroom-pdf-service
+    ports:
+      - "8008:8008"
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+    networks:
+      - boardroom-network
+
+  # =============================================================================
+  # FRONTEND
+  # =============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: boardroom-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      - agent-service
+      - orchestrator-service
+    networks:
+      - boardroom-network
+
+  # =============================================================================
+  # OBSERVABILITY
+  # =============================================================================
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: boardroom-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - boardroom-network
+
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: boardroom-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - boardroom-network
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  mysql_data:
+  redis_data:
+  milvus_etcd:
+  milvus_minio:
+  milvus_data:
+  zookeeper_data:
+  kafka_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+
+    # =============================================================================
+    # NETWORKS
+    # =============================================================================
+networks:
+  boardroom-network:
+    driver: bridge

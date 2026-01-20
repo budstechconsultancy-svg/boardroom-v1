@@ -1,0 +1,177 @@
+# BoardRoom Helm Values
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Common settings
+replicaCount: 1
+image:
+  pullPolicy: IfNotPresent
+
+# Agent Service
+agentService:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: boardroom/agent-service
+    tag: "1.0.0"
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 8001
+
+# Orchestrator Service
+orchestratorService:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: boardroom/orchestrator-service
+    tag: "1.0.0"
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8002
+
+# Connector Service
+connectorService:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: boardroom/connector-service
+    tag: "1.0.0"
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8003
+
+# Other Services
+auditService:
+  enabled: true
+  port: 8004
+
+authService:
+  enabled: true
+  port: 8005
+
+adminService:
+  enabled: true
+  port: 8006
+
+billingService:
+  enabled: true
+  port: 8007
+
+pdfService:
+  enabled: true
+  port: 8008
+
+# Frontend
+frontend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: boardroom/frontend
+    tag: "1.0.0"
+  service:
+    type: ClusterIP
+    port: 80
+
+# Ingress
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: boardroom.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+        - path: /api
+          pathType: Prefix
+          service: api-gateway
+  tls:
+    - secretName: boardroom-tls
+      hosts:
+        - boardroom.example.com
+
+# MySQL
+mysql:
+  enabled: true
+  auth:
+    rootPassword: ""
+    database: boardroom
+    username: boardroom
+    password: ""
+  primary:
+    persistence:
+      size: 50Gi
+
+# Redis
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: ""
+
+# Kafka
+kafka:
+  enabled: true
+  zookeeper:
+    enabled: true
+
+# Milvus
+milvus:
+  enabled: true
+  cluster:
+    enabled: false
+  standalone:
+    persistence:
+      size: 50Gi
+
+# MinIO (for S3-compatible storage)
+minio:
+  enabled: true
+  auth:
+    rootUser: minioadmin
+    rootPassword: ""
+  persistence:
+    size: 100Gi
+
+# Secrets
+secrets:
+  llmApiKey: ""
+  databaseUrl: ""
+  redisUrl: ""
+  jwtSecret: ""
+  encryptionKey: ""
+
+# Monitoring
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true

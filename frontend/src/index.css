@@ -1,0 +1,121 @@
+:root {
+  --primary-color: #1890ff;
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --error-color: #ff4d4f;
+  --heading-color: rgba(0, 0, 0, 0.85);
+  --text-color: rgba(0, 0, 0, 0.65);
+  --border-radius: 8px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f0f2f5;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Dashboard Cards */
+.dashboard-card {
+  border-radius: var(--border-radius);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: box-shadow 0.3s ease;
+}
+
+.dashboard-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* KPI Tiles */
+.kpi-tile {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: var(--border-radius);
+  padding: 20px;
+  color: white;
+}
+
+.kpi-tile.success {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+
+.kpi-tile.warning {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+/* Decision Card */
+.decision-card {
+  border-left: 4px solid var(--primary-color);
+  border-radius: var(--border-radius);
+}
+
+.decision-card.approved {
+  border-left-color: var(--success-color);
+}
+
+.decision-card.rejected {
+  border-left-color: var(--error-color);
+}
+
+.decision-card.pending {
+  border-left-color: var(--warning-color);
+}
+
+/* Agent Badge */
+.agent-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.agent-badge.ceo { background: #f6ffed; color: #52c41a; }
+.agent-badge.hr { background: #e6f7ff; color: #1890ff; }
+.agent-badge.finance { background: #fff7e6; color: #fa8c16; }
+.agent-badge.ops { background: #f9f0ff; color: #722ed1; }
+
+/* Confidence Score */
+.confidence-high { color: var(--success-color); }
+.confidence-medium { color: var(--warning-color); }
+.confidence-low { color: var(--error-color); }
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-only {
+    display: block !important;
+  }
+}

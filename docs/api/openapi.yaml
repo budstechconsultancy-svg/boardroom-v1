@@ -1,0 +1,559 @@
+openapi: 3.0.3
+info:
+  title: BoardRoom CXO Council API
+  description: |
+    Multi-Agent Deliberative Decision Engine for Enterprise ERPs
+    
+    ## Authentication
+    All API requests require a Bearer token in the Authorization header.
+    
+    ## Multi-Tenancy
+    All requests must include `X-Tenant-ID` header.
+  version: 1.0.0
+  contact:
+    name: BoardRoom Support
+    email: support@boardroom.ai
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+  - url: https://api.boardroom.ai/v1
+    description: Production
+
+tags:
+  - name: Agents
+    description: CXO Domain Agents
+  - name: Proposals
+    description: Decision Proposals
+  - name: Deliberation
+    description: Board Deliberation Workflow
+  - name: Connectors
+    description: ERP Connectors
+  - name: Audit
+    description: Audit and Compliance
+
+paths:
+  /agents:
+    get:
+      tags: [Agents]
+      summary: List all registered agents
+      parameters:
+        - name: domain
+          in: query
+          schema:
+            type: string
+            enum: [ceo, hr, finance, ops, sales, procurement, legal, it_security, customer_success, product]
+      responses:
+        '200':
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agent'
+                  total:
+                    type: integer
+
+  /agents/{agentName}/propose:
+    post:
+      tags: [Agents]
+      summary: Generate a proposal using an agent
+      parameters:
+        - name: agentName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                  description: The query or topic for the proposal
+      responses:
+        '200':
+          description: Generated proposal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+
+  /proposals:
+    get:
+      tags: [Proposals]
+      summary: List proposals
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, deliberating, voting, approved, rejected, executed]
+        - name: domain
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of proposals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  proposals:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Proposal'
+                  total:
+                    type: integer
+
+    post:
+      tags: [Proposals]
+      summary: Create a new proposal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProposalRequest'
+      responses:
+        '201':
+          description: Created proposal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+
+  /proposals/{proposalId}:
+    get:
+      tags: [Proposals]
+      summary: Get proposal details
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Proposal details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalDetail'
+
+  /deliberation/start:
+    post:
+      tags: [Deliberation]
+      summary: Start a deliberation session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [proposal_id]
+              properties:
+                proposal_id:
+                  type: string
+                  format: uuid
+                agents:
+                  type: array
+                  items:
+                    type: string
+                ceo_mode:
+                  type: string
+                  enum: [ai, human, hybrid]
+                  default: hybrid
+      responses:
+        '200':
+          description: Deliberation started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deliberation'
+
+  /deliberation/{deliberationId}:
+    get:
+      tags: [Deliberation]
+      summary: Get deliberation status
+      parameters:
+        - name: deliberationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deliberation status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deliberation'
+
+  /connectors:
+    get:
+      tags: [Connectors]
+      summary: List configured connectors
+      responses:
+        '200':
+          description: List of connectors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Connector'
+
+    post:
+      tags: [Connectors]
+      summary: Create a new connector
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConnectorRequest'
+      responses:
+        '201':
+          description: Created connector
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Connector'
+
+  /connectors/{connectorId}/sync:
+    post:
+      tags: [Connectors]
+      summary: Trigger sync for a connector
+      parameters:
+        - name: connectorId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tables:
+                  type: array
+                  items:
+                    type: string
+                full_sync:
+                  type: boolean
+                  default: false
+      responses:
+        '202':
+          description: Sync started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncResult'
+
+  /audit/logs:
+    get:
+      tags: [Audit]
+      summary: Get audit logs
+      parameters:
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: event_type
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLog'
+
+  /audit/bundle:
+    post:
+      tags: [Audit]
+      summary: Export audit bundle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from_date, to_date]
+              properties:
+                from_date:
+                  type: string
+                  format: date-time
+                to_date:
+                  type: string
+                  format: date-time
+                format:
+                  type: string
+                  enum: [json, pdf]
+                  default: json
+                include_signatures:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Audit bundle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditBundle'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Agent:
+      type: object
+      properties:
+        name:
+          type: string
+        domain:
+          type: string
+        description:
+          type: string
+        can_read:
+          type: boolean
+        can_execute:
+          type: boolean
+        vote_weight:
+          type: number
+
+    Proposal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        domain:
+          type: string
+        status:
+          type: string
+          enum: [draft, deliberating, voting, approved, rejected, executed]
+        risk_tier:
+          type: string
+          enum: [low, medium, high]
+        confidence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        created_at:
+          type: string
+          format: date-time
+
+    ProposalDetail:
+      allOf:
+        - $ref: '#/components/schemas/Proposal'
+        - type: object
+          properties:
+            rationale_bullets:
+              type: array
+              items:
+                type: string
+            evidence_references:
+              type: array
+              items:
+                $ref: '#/components/schemas/EvidenceReference'
+            votes:
+              type: array
+              items:
+                $ref: '#/components/schemas/Vote'
+            rounds:
+              type: array
+              items:
+                $ref: '#/components/schemas/Round'
+
+    CreateProposalRequest:
+      type: object
+      required: [title, description, domain]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        domain:
+          type: string
+        proposer_agent:
+          type: string
+
+    EvidenceReference:
+      type: object
+      properties:
+        connector_id:
+          type: string
+        table_name:
+          type: string
+        excerpt:
+          type: string
+        relevance_score:
+          type: number
+        document_hash:
+          type: string
+
+    Vote:
+      type: object
+      properties:
+        agent:
+          type: string
+        vote:
+          type: string
+          enum: [approve, reject, abstain]
+        rationale:
+          type: string
+        confidence:
+          type: number
+        weight:
+          type: number
+
+    Round:
+      type: object
+      properties:
+        round_number:
+          type: integer
+        phase:
+          type: string
+          enum: [proposal, challenge, counterproposal, voting]
+        contributions_count:
+          type: integer
+        challenges_count:
+          type: integer
+
+    Deliberation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        proposal_id:
+          type: string
+        status:
+          type: string
+        current_phase:
+          type: string
+        current_round:
+          type: integer
+        max_rounds:
+          type: integer
+
+    Connector:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [tally, zoho_books, sap_business_one, netsuite, custom]
+        status:
+          type: string
+          enum: [connected, disconnected, syncing, error]
+        last_sync_at:
+          type: string
+          format: date-time
+
+    CreateConnectorRequest:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        connection_config:
+          type: object
+
+    SyncResult:
+      type: object
+      properties:
+        status:
+          type: string
+        rows_imported:
+          type: integer
+        rows_updated:
+          type: integer
+        snapshot_id:
+          type: string
+
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+        event_type:
+          type: string
+        actor:
+          type: string
+        target_type:
+          type: string
+        target_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        event_hash:
+          type: string
+
+    AuditBundle:
+      type: object
+      properties:
+        bundle_id:
+          type: string
+        download_url:
+          type: string
+        record_count:
+          type: integer
+        bundle_hash:
+          type: string
+
+security:
+  - bearerAuth: []

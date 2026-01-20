@@ -1,0 +1,28 @@
+# FastAPI
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+
+# Database
+sqlalchemy==2.0.25
+aiomysql==0.2.0
+pymysql==1.1.0
+
+# Redis
+redis==5.0.1
+
+# Configuration
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# HTTP Client
+httpx==0.26.0
+
+# Observability
+prometheus-client==0.19.0
+
+# Message Queue
+aiokafka==0.10.0
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
