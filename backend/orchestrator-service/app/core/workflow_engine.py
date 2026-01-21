@@ -68,6 +68,7 @@ class DeliberationContext:
     rounds: List[RoundResult] = field(default_factory=list)
     status: DeliberationStatus = DeliberationStatus.PENDING
     created_at: datetime = field(default_factory=datetime.utcnow)
+    conclusion_statement: Optional[str] = None
 
 
 class WorkflowEngine:
@@ -85,7 +86,7 @@ class WorkflowEngine:
     def __init__(
         self,
         agent_service_url: str = "http://localhost:8001",
-        max_rounds: int = 3,
+        max_rounds: int = 5,
         round_timeout_seconds: int = 60,
         quorum_percentage: int = 60
     ):
@@ -182,10 +183,17 @@ class WorkflowEngine:
             # Allow proposer to respond
             logger.info(f"Round {context.current_round}: Counter-proposal phase")
         
-        # Phase 4: Voting (if final round or max rounds reached)
-        if context.current_round >= context.max_rounds or not challenges:
+        # Phase 4: Voting (only after minimum max_rounds (5) and conclusion)
+        # Enforce minimum rounds of conversation before voting
+        if context.current_round >= context.max_rounds or (context.current_round >= 3 and not challenges and context.current_round >= self.max_rounds):
+            # Generate conclusion statement before voting
+            if not hasattr(context, 'conclusion_statement') or not context.conclusion_statement:
+                conclusion = await self._generate_conclusion(context)
+                context.conclusion_statement = conclusion
+                logger.info(f"Generated conclusion statement after {context.current_round} rounds")
+            
             context.current_phase = DeliberationPhase.VOTING
-            logger.info(f"Round {context.current_round}: Voting phase")
+            logger.info(f"Round {context.current_round}: Voting phase (rounds met)")
             votes = await self._collect_votes(context, participating_agents)
             round_result.votes = votes
             
@@ -216,6 +224,9 @@ class WorkflowEngine:
                     else DeliberationStatus.REJECTED
                 )
                 context.current_phase = DeliberationPhase.COMPLETED
+        else:
+            # Continue deliberation - need more rounds
+            logger.info(f"Round {context.current_round}: Continuing deliberation")
         
         round_result.completed_at = datetime.utcnow()
         context.rounds.append(round_result)
@@ -230,15 +241,55 @@ class WorkflowEngine:
     ) -> List[Dict[str, Any]]:
         """Collect contributions from agents."""
         contributions = []
+        import random
+        
+        # Generate round-specific conversation content
+        round_num = context.current_round
+        proposal_title = context.proposal.get("title", "this proposal")
+        domain = context.proposal.get("domain", "general")
+        
+        # Evidence simulation
+        possible_evidence = [
+            "Quarterly Financial Report Q3 2025",
+            "Employee Sentiment Survey Results",
+            "Competitor Market Analysis 2026",
+            "IT Security Compliance Audit",
+            "Vendor Risk Assessment Report"
+        ]
         
         # In production, call agent service for each agent
-        # For now, return placeholder
+        # For now, generate contextual placeholder content
         for agent in agents:
+            evidence = None
+            if round_num == 1:
+                # Round 1: Initial analysis
+                content = f"I've analyzed {proposal_title} from the {agent.replace('Agent', '')} perspective. Based on our {domain} data, this proposal shows merit. I recommend we examine the implementation details and potential risks more closely."
+            elif round_num == 2:
+                # Round 2: Deeper discussion and challenges
+                content = f"Building on Round 1 discussion, I've identified some concerns regarding {proposal_title}. Specifically, we need to address the impact on {agent.replace('Agent', '').lower()} operations. I'd like to hear other agents' perspectives on mitigation strategies."
+                if random.random() > 0.6: # 40% chance of evidence
+                    evidence = random.choice(possible_evidence)
+            elif round_num == 3:
+                # Round 3: Mitigation and refinement
+                content = f"I've reviewed the proposed mitigation strategies. From a {agent.replace('Agent', '')} standpoint, these adjustments significantly reduce our risk exposure. I am attaching relevant compliance data to support this view."
+                if random.random() > 0.5:
+                    evidence = random.choice(possible_evidence)
+            elif round_num == 4:
+                # Round 4: Cross-functional alignment
+                content = f"We are seeing strong alignment now. The financial and operational models for {proposal_title} are converging. We should double-check the long-term sustainability metrics before the final vote."
+            else:
+                # Round 5+: Synthesis and final thoughts
+                content = f"After reviewing all 4 rounds of deliberation, I believe we have a solid plan for {proposal_title}. All major concerns have been addressed with evidence. I am prepared to cast my vote."
+                if random.random() > 0.7:
+                    evidence = "Final consolidated impact analysis"
+            
             contributions.append({
                 "agent": agent,
-                "content": f"Contribution from {agent}",
-                "confidence": 0.8,
-                "evidence_ids": []
+                "content": content,
+                "confidence": 0.75 + (round_num * 0.05),  # Confidence increases with rounds
+                "evidence_ids": [],
+                "evidence": evidence, # Include evidence text
+                "round_number": round_num
             })
         
         return contributions
@@ -251,10 +302,16 @@ class WorkflowEngine:
         """Collect challenges from agents."""
         challenges = []
         
-        # In production, call agent service for each agent
-        for agent in agents:
-            # Agent may or may not raise a challenge
-            pass
+        # Generate challenges in round 2
+        if context.current_round == 2 and len(agents) > 1:
+            # One agent raises a challenge
+            challenger = agents[1] if len(agents) > 1 else agents[0]
+            challenges.append({
+                "agent": challenger,
+                "challenge_type": "risk",
+                "content": f"{challenger} raised concerns about implementation timeline and resource allocation. These need to be addressed before proceeding.",
+                "resolution": "Concerns were discussed and mitigation strategies were proposed by the team."
+            })
         
         return challenges
     
@@ -310,6 +367,41 @@ class WorkflowEngine:
         if vote_tally["approve_percentage"] >= context.quorum_percentage:
             return "approve"
         return "reject"
+    
+    async def _generate_conclusion(
+        self,
+        context: DeliberationContext
+    ) -> str:
+        """
+        Generate conclusion statement from deliberation rounds.
+        
+        Synthesizes all contributions, challenges, and discussions
+        into a final summary statement.
+        """
+        conclusion_parts = [
+            f"After {len(context.rounds)} rounds of deliberation on '{context.proposal.get('title', 'this proposal')}':",
+            ""
+        ]
+        
+        # Summarize each round
+        for round_result in context.rounds:
+            round_summary = []
+            
+            if round_result.contributions:
+                agents = [c.get('agent', 'Agent') for c in round_result.contributions]
+                round_summary.append(f"Round {round_result.round_number}: {', '.join(agents)} provided analysis")
+            
+            if round_result.challenges:
+                challenge_count = len(round_result.challenges)
+                round_summary.append(f"{challenge_count} concern(s) raised and addressed")
+            
+            if round_summary:
+                conclusion_parts.append("- " + ", ".join(round_summary))
+        
+        conclusion_parts.append("")
+        conclusion_parts.append("The agents have completed their multi-round analysis and are ready to vote.")
+        
+        return "\n".join(conclusion_parts)
     
     def get_deliberation(self, deliberation_id: str) -> Optional[DeliberationContext]:
         """Get deliberation context."""

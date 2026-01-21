@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { Card, Row, Col, Tag, Progress, Button, Collapse, Timeline, Avatar, Divider, Typography, Space, Alert, Spin, message, Modal, Input } from 'antd';
+import { Card, Row, Col, Tag, Progress, Button, Collapse, Timeline, Avatar, Divider, Typography, Space, Alert, Spin, message, Modal, Input, Tooltip } from 'antd';
 import {
     CheckCircleOutlined,
     CloseCircleOutlined,
@@ -11,46 +11,53 @@ import {
     PrinterOutlined,
     DownloadOutlined,
     SyncOutlined,
+    CarryOutOutlined,
+    MessageOutlined,
+    TeamOutlined
 } from '@ant-design/icons';
+import { useProposals } from '../contexts/ProposalContext';
 
 const { Title, Text, Paragraph } = Typography;
 const { Panel } = Collapse;
 
 const ProposalDetail: React.FC = () => {
     const { id } = useParams();
-    const location = useLocation();
+    const { proposals, deliberations, votes, updateProposalStatus, generateDeliberation, getDeliberation } = useProposals();
     const [simulating, setSimulating] = useState(false);
 
-    // Default sample data (fallback)
-    const defaultProposal = {
-        id: id || 'P-001',
-        title: 'Q1 Budget Reallocation for Marketing',
-        description: 'Proposal to reallocate $50,000 from unused training budget to marketing initiatives for Q1 campaign.',
-        status: 'voting',
-        riskTier: 'medium',
-        confidence: 0.87,
-        domain: 'Finance',
-        proposer: 'Finance Agent',
-        createdAt: '2024-01-15T10:30:00Z',
-        impactSummary: 'Increased marketing reach expected to generate 15% more leads with 2.5x ROI.',
-    };
+    // Find the proposal from context
+    const proposal = proposals.find(p => p.id === id);
 
-    // Use passed state or fallback, leveraging URL ID if state is missing
-    const initialProposal = location.state?.proposal ? {
-        ...defaultProposal,
-        ...location.state.proposal,
-        description: location.state.proposal.description || defaultProposal.description
-    } : {
-        ...defaultProposal,
-        id: id || defaultProposal.id,
-        title: id && id !== defaultProposal.id ? `Proposal ${id} (Restored)` : defaultProposal.title,
-        description: id && id !== defaultProposal.id ? 'Data not found in local state (refresh detected). Using default mock data.' : defaultProposal.description
-    };
-
-    const [proposal, setProposal] = useState(initialProposal);
     const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
     const [infoRequest, setInfoRequest] = useState('');
     const [requestLoading, setRequestLoading] = useState(false);
+    const { addInfoRequest } = useProposals();
+
+    // Ensure deliberation data exists or generate it if missing (for deep links/refreshes)
+    useEffect(() => {
+        if (proposal && !deliberations[proposal.id]) {
+            generateDeliberation(proposal);
+        }
+    }, [proposal, deliberations, generateDeliberation]);
+
+    const chatEndRef = useRef<HTMLDivElement>(null);
+    const rounds = proposal ? getDeliberation(proposal.id) : [];
+
+    // Auto-scroll to bottom of chat
+    useEffect(() => {
+        if (chatEndRef.current) {
+            chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [rounds]);
+
+    // Handle case where proposal is not found (e.g. invalid URL)
+    if (!proposal) {
+        return <Alert message="Proposal Not Found" description="The requested proposal could not be retrieved." type="error" />;
+    }
+
+    // rounds is already defined above
+    const agentVotes = votes[proposal.id] || [];
+    const conclusionStatement = rounds[rounds.length - 1]?.conclusion;
 
     const handleRequestMoreInfo = () => {
         setIsInfoModalVisible(true);
@@ -63,35 +70,38 @@ const ProposalDetail: React.FC = () => {
         }
         setRequestLoading(true);
         setTimeout(() => {
+            addInfoRequest(proposal.id, infoRequest);
             setRequestLoading(false);
             setIsInfoModalVisible(false);
             setInfoRequest('');
-            message.success('Request sent to CXO Agents. You will be notified when they respond.');
-        }, 1500);
+            message.success('Request sent to Agents. Deliberation continuing...');
+        }, 1000);
     };
 
     const handleApprove = () => {
-        setProposal({ ...proposal, status: 'approved' });
+        updateProposalStatus(proposal.id, 'approved');
         message.success('Proposal approved and executed successfully.');
     };
 
     const handleReject = () => {
-        setProposal({ ...proposal, status: 'rejected' });
+        updateProposalStatus(proposal.id, 'rejected');
         message.info('Proposal rejected.');
     };
 
-    // Simulation effect for new proposals
+    // Simulation effect for new proposals in 'deliberating' state
     useEffect(() => {
         if (proposal.status === 'deliberating') {
             setSimulating(true);
             const timer = setTimeout(() => {
                 setSimulating(false);
-                setProposal(prev => ({ ...prev, status: 'voting' }));
+                // In a real app, backend would push this status change. 
+                // Here we simulate the transition to voting after 3s "deliberation" view
+                updateProposalStatus(proposal.id, 'voting');
                 message.success('Agent review completed. Voting session started.');
             }, 3000);
             return () => clearTimeout(timer);
         }
-    }, []);
+    }, [proposal.status, updateProposalStatus, proposal.id]); // Only run if status changes to deliberating, or acts as logic for initial load
 
     const evidenceMap: Record<string, any[]> = {
         'P-001': [
@@ -114,33 +124,7 @@ const ProposalDetail: React.FC = () => {
             { source: 'Usage Stats', excerpt: 'Cloud compute usage growing 10% month-over-month', relevance: 0.90 },
             { source: 'Budget Outlook', excerpt: 'Long-term commitment aligns with Capex strategy', relevance: 0.87 },
         ],
-    };
-
-    const votesMap: Record<string, any[]> = {
-        'P-001': [
-            { agent: 'HR Agent', vote: 'approve', rationale: 'No impact on mandatory training programs', confidence: 0.85 },
-            { agent: 'Finance Agent', vote: 'approve', rationale: 'Within budget transfer policy, positive ROI expected', confidence: 0.92 },
-            { agent: 'Ops Agent', vote: 'abstain', rationale: 'No operational impact identified', confidence: 0.75 },
-            { agent: 'Legal Agent', vote: 'approve', rationale: 'No compliance concerns identified', confidence: 0.88 },
-        ],
-        'P-002': [
-            { agent: 'HR Agent', vote: 'approve', rationale: 'Critical need for roadmap execution', confidence: 0.95 },
-            { agent: 'Finance Agent', vote: 'reject', rationale: 'Exceeds Q1 hiring budget by 15%', confidence: 0.82 },
-            { agent: 'Ops Agent', vote: 'approve', rationale: 'Will alleviate bottleneck in product delivery', confidence: 0.88 },
-            { agent: 'Legal Agent', vote: 'approve', rationale: 'Standard employment contract applies', confidence: 0.90 },
-        ],
-        'P-003': [
-            { agent: 'HR Agent', vote: 'abstain', rationale: 'Minimal workforce impact expected', confidence: 0.70 },
-            { agent: 'Finance Agent', vote: 'approve', rationale: 'ROI positive within 9 months', confidence: 0.89 },
-            { agent: 'Ops Agent', vote: 'approve', rationale: 'Crucial for meeting efficiency targets', confidence: 0.94 },
-            { agent: 'Legal Agent', vote: 'abstain', rationale: 'Waiting for data privacy review', confidence: 0.65 },
-        ],
-        'P-004': [
-            { agent: 'HR Agent', vote: 'abstain', rationale: 'N/A', confidence: 0.60 },
-            { agent: 'Finance Agent', vote: 'approve', rationale: 'Significant long-term savings', confidence: 0.93 },
-            { agent: 'Ops Agent', vote: 'approve', rationale: 'Guarantees infrastructure stability', confidence: 0.91 },
-            { agent: 'Legal Agent', vote: 'approve', rationale: 'Terms are standard and favorable', confidence: 0.89 },
-        ],
+        // Falls back to generic evidence for new proposals
     };
 
     // Fallback for new simulated proposals
@@ -148,164 +132,288 @@ const ProposalDetail: React.FC = () => {
         { source: 'Corporate Policy', excerpt: 'Standard operating procedure for this domain', relevance: 0.85 },
         { source: 'Historical Data', excerpt: 'Similar proposals have showed positive trend', relevance: 0.80 },
     ];
-    const defaultVotes = [
-        { agent: 'HR Agent', vote: 'approve', rationale: 'Aligns with people strategy', confidence: 0.85 },
-        { agent: 'Finance Agent', vote: 'approve', rationale: 'Within budget limits', confidence: 0.88 },
-        { agent: 'Ops Agent', vote: 'approve', rationale: 'Operationally feasible', confidence: 0.90 },
-        { agent: 'Legal Agent', vote: 'approve', rationale: 'No compliance risks', confidence: 0.92 },
-    ];
 
     const evidence = evidenceMap[proposal.id] || defaultEvidence;
-    const agentVotes = votesMap[proposal.id] || defaultVotes;
 
-    const rounds = [
-        { round: 1, phase: 'Proposal', summary: `${proposal.domain} Agent submitted initial proposal with evidence` },
-        { round: 2, phase: 'Challenge', summary: 'HR Agent raised concern about training impact - resolved' },
-        { round: 3, phase: 'Voting', summary: 'All agents submitted votes, awaiting CEO decision' },
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const handleExportPDF = () => {
+        message.info('Opening print dialog - select "Save as PDF" to export');
+        window.print();
+    };
+
+    // Color mapper for agent domains
+    const getAgentColor = (domain: string) => {
+        const colors: Record<string, string> = {
+            'Finance': '#1890ff',
+            'HR': '#eb2f96',
+            'Operations': '#52c41a',
+            'Legal': '#faad14',
+            'Sales': '#722ed1',
+            'Procurement': '#fa541c'
+        };
+        return colors[domain] || '#1890ff';
+    };
+
+    // Participating Agents (All 4 standard agents + potentially the Proposer if different)
+    // For now we assume standard 4
+    const participatingAgents = [
+        { name: 'Finance Agent', domain: 'Finance' },
+        { name: 'HR Agent', domain: 'HR' },
+        { name: 'Ops Agent', domain: 'Operations' },
+        { name: 'Legal Agent', domain: 'Legal' }
     ];
 
     return (
-        <div>
-            {/* Header Card */}
-            <Card
-                className="decision-card pending"
-                style={{ marginBottom: 16 }}
-                extra={
-                    <Space>
-                        <Button icon={<PrinterOutlined />}>Print</Button>
-                        <Button icon={<DownloadOutlined />}>Export PDF</Button>
-                    </Space>
-                }
-            >
-                <Row gutter={[24, 16]}>
-                    <Col span={16}>
-                        <Title level={4} style={{ marginBottom: 8 }}>{proposal.title}</Title>
-                        <Space size="middle">
-                            <Tag color="blue">{proposal.domain}</Tag>
-                            <Tag color={proposal.riskTier === 'high' ? 'red' : proposal.riskTier === 'medium' ? 'orange' : 'green'}>
-                                {proposal.riskTier ? proposal.riskTier.toUpperCase() : 'MEDIUM'} RISK
-                            </Tag>
-                            <Tag color="processing" icon={proposal.status === 'deliberating' ? <SyncOutlined spin /> : null}>
-                                {proposal.status.toUpperCase()}
-                            </Tag>
+        <div style={{ height: 'calc(100vh - 120px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            {/* Header Card - Fixed at top */}
+            <div style={{ flexShrink: 0, marginBottom: 16 }}>
+                <Card
+                    className="decision-card pending"
+                    bodyStyle={{ padding: '12px 24px' }}
+                    extra={
+                        <Space>
+                            <Button icon={<PrinterOutlined />} onClick={handlePrint}>Print</Button>
+                            <Button icon={<DownloadOutlined />} onClick={handleExportPDF}>Export PDF</Button>
                         </Space>
-                        <Paragraph style={{ marginTop: 12 }}>{proposal.description}</Paragraph>
+                    }
+                >
+                    <Row gutter={[24, 16]} align="middle">
+                        <Col span={16}>
+                            <Space size="middle" align="baseline">
+                                <Title level={4} style={{ marginBottom: 0 }}>{proposal.title}</Title>
+                                <Tag color="blue">{proposal.domain}</Tag>
+                                <Tag color={proposal.riskTier === 'high' ? 'red' : proposal.riskTier === 'medium' ? 'orange' : 'green'}>
+                                    {proposal.riskTier ? proposal.riskTier.toUpperCase() : 'MEDIUM'} RISK
+                                </Tag>
+                                <Tag color="processing" icon={proposal.status === 'deliberating' ? <SyncOutlined spin /> : null}>
+                                    {proposal.status.toUpperCase()}
+                                </Tag>
+                            </Space>
+                            <Paragraph style={{ marginTop: 8, marginBottom: 0 }} ellipsis={{ rows: 2 }}>{proposal.description}</Paragraph>
+                        </Col>
+                        <Col span={8} style={{ textAlign: 'right' }}>
+                            <Space>
+                                <div style={{ textAlign: 'right', marginRight: 16 }}>
+                                    <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>Confidence Score</Text>
+                                    <Text strong style={{ fontSize: 18, color: proposal.confidence >= 0.8 ? '#52c41a' : '#faad14' }}>
+                                        {(proposal.confidence * 100).toFixed(0)}%
+                                    </Text>
+                                </div>
+                                <Progress
+                                    type="circle"
+                                    percent={proposal.confidence * 100}
+                                    width={50}
+                                    format={() => null}
+                                    status={proposal.confidence >= 0.8 ? 'success' : 'normal'}
+                                />
+                            </Space>
+                        </Col>
+                    </Row>
+                </Card>
+            </div>
 
+            {/* Main Content Area - Scrollable */}
+            <Row gutter={16} style={{ flex: 1, overflow: 'hidden' }}>
+                {/* Chat Interface (Left - 16) - Takes remaining height */}
+                <Col span={16} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <Card
+                        title={<span><MessageOutlined /> Agent Deliberation Chat</span>}
+                        style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+                        bodyStyle={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '0 24px 24px 24px', overflow: 'hidden' }}
+                    >
+                        {/* Scrollable Chat Container */}
+                        <div style={{ flex: 1, overflowY: 'auto', paddingRight: '10px' }}>
+                            <Timeline mode="left" style={{ marginTop: 24 }}>
+                                {rounds.map((r, i) => (
+                                    <Timeline.Item key={i} color={i === rounds.length - 1 ? 'blue' : 'green'} label={`Round ${r.round}`}>
+                                        <div style={{ marginBottom: 24 }}>
+                                            <Tag color="geekblue" style={{ marginBottom: 16 }}>{r.phase}</Tag>
+
+                                            {r.conversations?.map((conv, idx) => (
+                                                <div key={idx} style={{ display: 'flex', marginBottom: 16, alignItems: 'flex-start' }}>
+                                                    <Avatar
+                                                        icon={<RobotOutlined />}
+                                                        style={{ backgroundColor: getAgentColor(conv.domain || 'Finance'), marginRight: 12, minWidth: 32 }}
+                                                    />
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                                                            <Text strong style={{ marginRight: 8 }}>{conv.agent}</Text>
+                                                            <Text type="secondary" style={{ fontSize: 11 }}>{conv.timestamp}</Text>
+                                                            {conv.isChallenge && <Tag color="error" style={{ marginLeft: 8 }}>Challenge</Tag>}
+                                                            {conv.isResponse && <Tag color="success" style={{ marginLeft: 8 }}>Response</Tag>}
+                                                            {/* Display Evidence if Attached */}
+                                                            {conv.evidence && (
+                                                                <Tooltip title="Evidence Provided">
+                                                                    <FileTextOutlined style={{ color: '#1890ff', marginLeft: 8 }} />
+                                                                </Tooltip>
+                                                            )}
+                                                        </div>
+                                                        <div style={{
+                                                            background: conv.isChallenge ? '#fff1f0' : conv.isResponse ? '#f6ffed' : '#e6f7ff',
+                                                            padding: '10px 14px',
+                                                            borderRadius: '0 12px 12px 12px',
+                                                            border: '1px solid #f0f0f0',
+                                                            display: 'inline-block',
+                                                            maxWidth: '90%'
+                                                        }}>
+                                                            <Text>{conv.message}</Text>
+                                                            {conv.evidence && (
+                                                                <div style={{ marginTop: 8, padding: 8, background: 'rgba(255,255,255,0.6)', borderRadius: 4, border: '1px dashed #d9d9d9' }}>
+                                                                    <div style={{ fontSize: 11, fontWeight: 'bold', color: '#666' }}>
+                                                                        <FileTextOutlined /> EVIDENCE SUBMITTED
+                                                                    </div>
+                                                                    <Text type="secondary" style={{ fontSize: 11 }}>{conv.evidence}</Text>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {r.conclusion && (
+                                                <Alert
+                                                    message="Round Conclusion"
+                                                    description={r.conclusion}
+                                                    type="success"
+                                                    showIcon
+                                                    style={{ marginTop: 16 }}
+                                                />
+                                            )}
+                                        </div>
+                                    </Timeline.Item>
+                                ))}
+                                <div ref={chatEndRef} />
+                            </Timeline>
+                        </div>
+
+                        {/* Status Footer inside Chat Card */}
                         {proposal.status === 'deliberating' && (
-                            <Alert
-                                message="Agent Review in Progress"
-                                description="The CXO Council agents are currently analyzing this proposal against their respective knowledge bases (HR, Finance, Legal, Ops) and retrieving relevant evidence."
-                                type="info"
-                                showIcon
-                                icon={<RobotOutlined spin />}
-                                style={{ marginTop: 16 }}
-                            />
+                            <div style={{ textAlign: 'center', padding: '10px 0', borderTop: '1px dashed #eee', marginTop: 16 }}>
+                                <Spin tip={`Round ${rounds.length + 1} in progress...`} />
+                            </div>
                         )}
-                    </Col>
-                    <Col span={8}>
-                        <Card size="small" title="Confidence Score">
-                            <Progress
-                                type="dashboard"
-                                percent={proposal.confidence * 100}
-                                format={(p) => `${p?.toFixed(0)}%`}
-                                status={proposal.confidence >= 0.8 ? 'success' : 'normal'}
-                            />
-                        </Card>
-                    </Col>
-                </Row>
-            </Card>
+                    </Card>
+                </Col>
 
-            <Row gutter={16}>
-                {/* Evidence Panel */}
-                <Col span={12}>
-                    <Card title="📋 Evidence References" style={{ marginBottom: 16 }}>
+                {/* Evidence & Final Voting (Right - 8) - Scrollable Column */}
+                <Col span={8} style={{ height: '100%', overflowY: 'auto', paddingBottom: 16 }}>
+
+                    {/* Agents Grid - Moved here or kept? The user didn't specify, but I'll keeping it compact or move it to top if needed. 
+                        For now, let's keep it but maybe compact it to fit better in the right column if the user wants "conversation in scrollable within page".
+                        Wait, the original layout had Agent Overview above. 
+                        I will move Agent Status to a smaller card at the top of the right column.
+                    */}
+
+                    <Card title="Participating Agents" size="small" style={{ marginBottom: 16 }}>
+                        <Row gutter={[8, 8]}>
+                            {participatingAgents.map((agent, index) => {
+                                const vote = agentVotes.find(v => v.domain === agent.domain);
+                                return (
+                                    <Col span={24} key={index}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <Space>
+                                                <Avatar size="small" icon={<RobotOutlined />} style={{ backgroundColor: getAgentColor(agent.domain) }} />
+                                                <Text style={{ fontSize: 12 }}>{agent.name}</Text>
+                                            </Space>
+                                            {!vote ? (
+                                                <Tag style={{ fontSize: 10 }}>Running</Tag>
+                                            ) : (
+                                                <Tag color={vote.vote === 'approve' ? 'success' : 'error'} style={{ fontSize: 10 }}>
+                                                    {vote.vote}
+                                                </Tag>
+                                            )}
+                                        </div>
+                                    </Col>
+                                );
+                            })}
+                        </Row>
+                    </Card>
+
+                    {/* Evidence Panel */}
+                    <Card title="📋 Evidence" style={{ marginBottom: 16 }} bodyStyle={{ padding: 12 }}>
                         {proposal.status === 'deliberating' && simulating ? (
                             <div style={{ textAlign: 'center', padding: 20 }}>
-                                <Spin tip="Retrieving evidence from vector store..." />
+                                <Spin tip="Retrieving evidence..." />
                             </div>
                         ) : (
                             evidence.map((e, i) => (
-                                <Card size="small" key={i} style={{ marginBottom: 8 }}>
-                                    <Text strong>{e.source}</Text>
-                                    <Tag style={{ float: 'right' }}>{(e.relevance * 100).toFixed(0)}% relevant</Tag>
-                                    <Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
+                                <div key={i} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid #f0f0f0' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                        <Text strong style={{ fontSize: 12 }}>{e.source}</Text>
+                                        <Tag style={{ fontSize: 10 }}>{(e.relevance * 100).toFixed(0)}%</Tag>
+                                    </div>
+                                    <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 0 }}>
                                         "{e.excerpt}"
                                     </Paragraph>
-                                </Card>
+                                </div>
                             ))
                         )}
                     </Card>
-                </Col>
 
-                {/* Agent Votes */}
-                <Col span={12}>
-                    <Card title="🗳️ Agent Votes" style={{ marginBottom: 16 }}>
-                        {proposal.status === 'deliberating' ? (
-                            <div style={{ padding: 20, textAlign: 'center', color: '#999' }}>
-                                <RobotOutlined style={{ fontSize: 24, marginBottom: 8 }} />
-                                <p>Agents are deliberating... Votes pending.</p>
+                    {/* Final Voting Section */}
+                    <Card title="🗳️ Final Voting Results" style={{ marginBottom: 16, border: '1px solid #1890ff' }}>
+                        {!conclusionStatement ? (
+                            <div style={{ textAlign: 'center', padding: '20px 0', color: '#999' }}>
+                                <CarryOutOutlined style={{ fontSize: 24, marginBottom: 8 }} />
+                                <p style={{ marginBottom: 4 }}>Voting Locked</p>
+                                <Text type="secondary" style={{ fontSize: 11 }}>
+                                    Requires 5 rounds
+                                </Text>
                             </div>
                         ) : (
-                            agentVotes.map((v, i) => (
-                                <Card size="small" key={i} style={{ marginBottom: 8 }}>
-                                    <Row align="middle">
-                                        <Col span={8}>
-                                            <Space>
-                                                <Avatar icon={<RobotOutlined />} style={{ backgroundColor: '#1890ff' }} />
-                                                <Text strong>{v.agent}</Text>
-                                            </Space>
-                                        </Col>
-                                        <Col span={8}>
-                                            <Tag
-                                                icon={
-                                                    v.vote === 'approve' ? <CheckCircleOutlined /> :
-                                                        v.vote === 'reject' ? <CloseCircleOutlined /> :
-                                                            <QuestionCircleOutlined />
-                                                }
-                                                color={v.vote === 'approve' ? 'success' : v.vote === 'reject' ? 'error' : 'default'}
-                                            >
-                                                {v.vote.toUpperCase()}
-                                            </Tag>
-                                        </Col>
-                                        <Col span={8}>
-                                            <Text type="secondary">{(v.confidence * 100).toFixed(0)}% confident</Text>
-                                        </Col>
-                                    </Row>
-                                    <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-                                        {v.rationale}
-                                    </Text>
-                                </Card>
-                            ))
+                            <div>
+                                <Alert
+                                    message="Consensus Reached"
+                                    type="success"
+                                    showIcon
+                                    style={{ marginBottom: 16 }}
+                                />
+                                {agentVotes.map((v, i) => (
+                                    <div key={i} style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <Space>
+                                            <Avatar size="small" style={{ backgroundColor: getAgentColor(v.domain || 'Finance') }}>
+                                                {v.agent[0]}
+                                            </Avatar>
+                                            <Text style={{ fontSize: 12 }}>{v.agent}</Text>
+                                        </Space>
+                                        <Tag color={v.vote === 'approve' ? 'success' : v.vote === 'reject' ? 'error' : 'default'}>
+                                            {v.vote.toUpperCase()}
+                                        </Tag>
+                                    </div>
+                                ))}
+                            </div>
                         )}
+                    </Card>
+
+                    {/* Action Buttons - Fixed at bottom of column or just part of flow? Part of flow is fine. */}
+                    <Card>
+                        <Space direction="vertical" style={{ width: '100%' }}>
+                            <Button
+                                type="primary"
+                                block
+                                icon={<CheckCircleOutlined />}
+                                disabled={!conclusionStatement || proposal.status === 'deliberating'}
+                                onClick={handleApprove}
+                            >
+                                Approve
+                            </Button>
+                            <Button
+                                danger
+                                block
+                                icon={<CloseCircleOutlined />}
+                                disabled={!conclusionStatement || proposal.status === 'deliberating'}
+                                onClick={handleReject}
+                            >
+                                Reject
+                            </Button>
+                            <Button block onClick={handleRequestMoreInfo}>Request Info</Button>
+                        </Space>
                     </Card>
                 </Col>
             </Row>
-
-            {/* Deliberation Timeline */}
-            <Card title="⏱️ Deliberation Rounds">
-                <Timeline>
-                    {rounds.map((r, i) => (
-                        <Timeline.Item key={i} color={i === rounds.length - 1 ? 'blue' : 'green'}>
-                            <Text strong>Round {r.round}: {r.phase}</Text>
-                            <br />
-                            <Text type="secondary">{r.summary}</Text>
-                        </Timeline.Item>
-                    ))}
-                </Timeline>
-            </Card>
-
-            {/* Action Buttons */}
-            <Card style={{ marginTop: 16 }}>
-                <Space size="large">
-                    <Button type="primary" size="large" icon={<CheckCircleOutlined />} disabled={proposal.status === 'deliberating'} onClick={handleApprove}>
-                        Approve & Execute
-                    </Button>
-                    <Button danger size="large" icon={<CloseCircleOutlined />} disabled={proposal.status === 'deliberating'} onClick={handleReject}>
-                        Reject
-                    </Button>
-                    <Button size="large" onClick={handleRequestMoreInfo}>Request More Info</Button>
-                </Space>
-            </Card>
 
             <Modal
                 title="Request More Information"
@@ -316,11 +424,10 @@ const ProposalDetail: React.FC = () => {
                 okText="Send Request"
             >
                 <Paragraph>
-                    Specify what additional information you need from the agents. They will query the knowledge base and update the proposal evidence.
+                    Specify what additional information you need from the agents.
                 </Paragraph>
                 <Input.TextArea
                     rows={4}
-                    placeholder="e.g., Can you verify the legal implications of this clause?"
                     value={infoRequest}
                     onChange={(e) => setInfoRequest(e.target.value)}
                 />

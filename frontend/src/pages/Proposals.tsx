@@ -1,21 +1,14 @@
 import React, { useState } from 'react';
 import { Card, Table, Tag, Button, Space, Input, Select, message } from 'antd';
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, PrinterOutlined, DownloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import CreateProposalModal from '../components/CreateProposalModal';
+import { useProposals } from '../contexts/ProposalContext';
 
 const Proposals: React.FC = () => {
     const navigate = useNavigate();
     const [isModalVisible, setIsModalVisible] = useState(false);
-
-    // Mock data state
-    // Mock data state
-    const [proposals, setProposals] = useState([
-        { id: 'P-001', title: 'Q1 Budget Reallocation', domain: 'Finance', description: 'Proposal to reallocate $50,000 from unused training budget to marketing initiatives for Q1 campaign.', status: 'approved', riskTier: 'medium', confidence: 0.92, createdAt: '2024-01-15' },
-        { id: 'P-002', title: 'New Hire: Senior Developer', domain: 'HR', description: 'Request for headcount increase to hire a Senior Full-stack Developer to accelerate product roadmap execution.', status: 'voting', riskTier: 'low', confidence: 0.85, createdAt: '2024-01-16' },
-        { id: 'P-003', title: 'Inventory Optimization', domain: 'Ops', description: 'Implementation of AI-driven inventory management system to reduce holding costs by 12%.', status: 'deliberating', riskTier: 'medium', confidence: 0.78, createdAt: '2024-01-17' },
-        { id: 'P-004', title: 'Major Vendor Contract', domain: 'Procurement', description: 'Renewal of cloud infrastructure contract with a 3-year commitment for a 15% discount.', status: 'pending_ceo', riskTier: 'high', confidence: 0.65, createdAt: '2024-01-18' },
-    ]);
+    const { proposals, addProposal } = useProposals(); // Use global context
 
     const handleCreateProposal = (values: any) => {
         const domainMap: Record<string, string> = {
@@ -28,20 +21,25 @@ const Proposals: React.FC = () => {
             it_security: 'IT Security'
         };
 
-        const newProposal = {
-            id: `P-00${proposals.length + 1}`,
+        const newProposalData = {
             title: values.title.charAt(0).toUpperCase() + values.title.slice(1),
             domain: domainMap[values.domain] || values.domain,
             description: values.description,
-            status: 'deliberating',
-            riskTier: 'medium', // Default for now
-            confidence: 0.6, // Initial confidence
-            createdAt: new Date().toISOString().split('T')[0],
+            proposer: `${domainMap[values.domain] || values.domain} Agent` // Assign a proposer
         };
 
-        setProposals([newProposal, ...proposals]);
+        addProposal(newProposalData); // Add to global context
         setIsModalVisible(false);
-        message.success('Proposal initiated successfully');
+        message.success('Proposal initiated successfully. All agents notified for deliberation.');
+    };
+
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const handleExportPDF = () => {
+        message.info('Opening print dialog - select "Save as PDF" to export');
+        window.print();
     };
 
     const columns = [
@@ -67,7 +65,7 @@ const Proposals: React.FC = () => {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
-            render: (s: string) => <Tag color="processing">{s.replace('_', ' ')}</Tag>,
+            render: (s: string) => <Tag color="processing">{s.replace('_', ' ').toUpperCase()}</Tag>, // Capitalize status
         },
         {
             title: 'Confidence',
@@ -84,7 +82,7 @@ const Proposals: React.FC = () => {
             title: 'Actions',
             key: 'actions',
             render: (_: any, record: any) => (
-                <Button type="link" onClick={() => navigate(`/proposals/${record.id}`, { state: { proposal: record } })}>
+                <Button type="link" onClick={() => navigate(`/proposals/${record.id}`)}>
                     View
                 </Button>
             ),
@@ -96,9 +94,13 @@ const Proposals: React.FC = () => {
             <Card
                 title="Proposals"
                 extra={
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>
-                        New Proposal
-                    </Button>
+                    <Space>
+                        <Button icon={<PrinterOutlined />} onClick={handlePrint}>Print</Button>
+                        <Button icon={<DownloadOutlined />} onClick={handleExportPDF}>Export PDF</Button>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>
+                            New Proposal
+                        </Button>
+                    </Space>
                 }
             >
                 <Space style={{ marginBottom: 16 }}>
@@ -119,8 +121,8 @@ const Proposals: React.FC = () => {
 
             <CreateProposalModal
                 visible={isModalVisible}
-                onCancel={() => setIsModalVisible(false)}
                 onSubmit={handleCreateProposal}
+                onCancel={() => setIsModalVisible(false)}
             />
         </div>
     );

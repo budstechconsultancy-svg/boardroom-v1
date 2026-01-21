@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Form, Input, Select, Button, message } from 'antd';
+import { useAgents } from '../contexts/AgentContext';
 
 interface CreateProposalModalProps {
     visible: boolean;
@@ -14,6 +15,10 @@ const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
 }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
+    const { agents } = useAgents();
+
+    // Filter only active agents for proposal creation
+    const activeAgents = agents.filter(a => a.active);
 
     const handleOk = async () => {
         try {
@@ -68,13 +73,11 @@ const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
                     rules={[{ required: true, message: 'Please select a domain' }]}
                 >
                     <Select>
-                        <Select.Option value="finance">Finance (CFO)</Select.Option>
-                        <Select.Option value="hr">HR (CHRO)</Select.Option>
-                        <Select.Option value="ops">Operations (COO)</Select.Option>
-                        <Select.Option value="sales">Sales (CRO)</Select.Option>
-                        <Select.Option value="procurement">Procurement (CPO)</Select.Option>
-                        <Select.Option value="legal">Legal (CLO)</Select.Option>
-                        <Select.Option value="it_security">IT Security (CISO)</Select.Option>
+                        {activeAgents.map(agent => (
+                            <Select.Option key={agent.domain} value={agent.domain}>
+                                {agent.name.replace(' Agent', '')} ({agent.domain.toUpperCase()})
+                            </Select.Option>
+                        ))}
                     </Select>
                 </Form.Item>
 

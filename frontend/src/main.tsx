@@ -1,24 +1,22 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { ConfigProvider, theme } from 'antd';
 import App from './App';
+import { NotificationProvider } from './contexts/NotificationContext';
+import { ProposalProvider } from './contexts/ProposalContext';
+import { AgentProvider } from './contexts/AgentContext';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
         <BrowserRouter>
-            <ConfigProvider
-                theme={{
-                    algorithm: theme.defaultAlgorithm,
-                    token: {
-                        colorPrimary: '#1890ff',
-                        borderRadius: 8,
-                    },
-                }}
-            >
-                <App />
-            </ConfigProvider>
+            <NotificationProvider>
+                <AgentProvider>
+                    <ProposalProvider>
+                        <App />
+                    </ProposalProvider>
+                </AgentProvider>
+            </NotificationProvider>
         </BrowserRouter>
     </React.StrictMode>
 );

@@ -7,25 +7,37 @@ import {
     ExclamationCircleOutlined,
     ArrowUpOutlined,
     ArrowDownOutlined,
+    FileTextOutlined,
 } from '@ant-design/icons';
+
+import { useProposals } from '../contexts/ProposalContext';
 
 const { Title, Text } = Typography;
 
 const Dashboard: React.FC = () => {
-    // Sample data for dashboard
+    const { proposals } = useProposals();
+
+    // Calculate KPI data dynamically
+    // Active = Currently in deliberation (Agents are working)
+    const activeProposals = proposals.filter(p => p.status === 'deliberating').length;
+    // Pending = Waiting for vote or CEO (Agents are done, humans/system resolving)
+    const pendingApprovals = proposals.filter(p => p.status === 'voting' || p.status === 'pending_ceo').length;
+    const autoExecuted = proposals.filter(p => p.status === 'approved').length;
+
+    const completedProposals = proposals.filter(p => ['approved', 'rejected'].includes(p.status)).length;
+    const rejectedProposals = proposals.filter(p => p.status === 'rejected').length;
+    const overrideRate = completedProposals > 0 ? ((rejectedProposals / completedProposals) * 100).toFixed(1) : '0';
+
+    // Sample static data for dashboard
     const kpiData = [
-        { title: 'Active Proposals', value: 12, icon: <FileTextOutlined />, color: '#1890ff' },
-        { title: 'Pending Approvals', value: 5, icon: <ClockCircleOutlined />, color: '#faad14' },
-        { title: 'Auto-Executed', value: 45, icon: <CheckCircleOutlined />, color: '#52c41a', suffix: 'this month' },
-        { title: 'Override Rate', value: 8.5, icon: <ExclamationCircleOutlined />, color: '#ff4d4f', suffix: '%' },
+        { title: 'Active Proposals', value: activeProposals, icon: <FileTextOutlined />, color: '#1890ff' },
+        { title: 'Pending Approvals', value: pendingApprovals, icon: <ClockCircleOutlined />, color: '#faad14' },
+        { title: 'Auto-Executed', value: autoExecuted, icon: <CheckCircleOutlined />, color: '#52c41a', suffix: 'total' },
+        { title: 'Override Rate', value: overrideRate, icon: <ExclamationCircleOutlined />, color: '#ff4d4f', suffix: '%' },
     ];
 
-    const recentProposals = [
-        { id: 'P-001', title: 'Q1 Budget Reallocation', domain: 'Finance', status: 'approved', confidence: 0.92 },
-        { id: 'P-002', title: 'New Hire: Senior Developer', domain: 'HR', status: 'voting', confidence: 0.85 },
-        { id: 'P-003', title: 'Inventory Optimization', domain: 'Ops', status: 'deliberating', confidence: 0.78 },
-        { id: 'P-004', title: 'Vendor Contract Renewal', domain: 'Procurement', status: 'pending', confidence: 0.65 },
-    ];
+    // Get recent 5 proposals
+    const recentProposals = [...proposals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
 
     const columns = [
         { title: 'ID', dataIndex: 'id', key: 'id' },
@@ -54,8 +66,9 @@ const Dashboard: React.FC = () => {
                     voting: { color: 'processing', icon: <SyncOutlined spin /> },
                     deliberating: { color: 'warning', icon: <ClockCircleOutlined /> },
                     pending: { color: 'default', icon: <ClockCircleOutlined /> },
+                    rejected: { color: 'error', icon: <ExclamationCircleOutlined /> }
                 };
-                return <Tag icon={config[status]?.icon} color={config[status]?.color}>{status}</Tag>;
+                return <Tag icon={config[status]?.icon} color={config[status]?.color}>{status?.toUpperCase()}</Tag>;
             },
         },
         {
@@ -145,8 +158,5 @@ const Dashboard: React.FC = () => {
         </div>
     );
 };
-
-// Import for icon
-import { FileTextOutlined } from '@ant-design/icons';
 
 export default Dashboard;

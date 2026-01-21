@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Avatar, Dropdown, Badge, Typography } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Badge, Typography, List, Button, Empty } from 'antd';
 import {
     DashboardOutlined,
     FileTextOutlined,
@@ -10,7 +10,10 @@ import {
     BellOutlined,
     UserOutlined,
     LogoutOutlined,
+    CheckOutlined,
+    DeleteOutlined,
 } from '@ant-design/icons';
+import { useNotifications } from '../contexts/NotificationContext';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -18,6 +21,7 @@ const { Text } = Typography;
 const MainLayout: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll } = useNotifications();
 
     const menuItems = [
         { key: '/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
@@ -36,6 +40,57 @@ const MainLayout: React.FC = () => {
                 { key: 'logout', icon: <LogoutOutlined />, label: 'Logout', danger: true },
             ]}
         />
+    );
+
+    const notificationMenu = (
+        <div style={{ width: 350, maxHeight: 400, overflow: 'auto', background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text strong>Notifications</Text>
+                <div>
+                    <Button size="small" type="text" icon={<CheckOutlined />} onClick={markAllAsRead}>
+                        Mark all read
+                    </Button>
+                    <Button size="small" type="text" icon={<DeleteOutlined />} onClick={clearAll}>
+                        Clear
+                    </Button>
+                </div>
+            </div>
+            {notifications.length === 0 ? (
+                <Empty description="No notifications" style={{ padding: 24 }} />
+            ) : (
+                <List
+                    dataSource={notifications}
+                    renderItem={(item) => (
+                        <List.Item
+                            key={item.id}
+                            style={{
+                                padding: '12px 16px',
+                                background: item.read ? '#fff' : '#f0f7ff',
+                                cursor: 'pointer'
+                            }}
+                            onClick={() => markAsRead(item.id)}
+                        >
+                            <List.Item.Meta
+                                title={
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <Text strong={!item.read}>{item.title}</Text>
+                                        {!item.read && <Badge status="processing" />}
+                                    </div>
+                                }
+                                description={
+                                    <>
+                                        <div>{item.message}</div>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>
+                                            {new Date(item.timestamp).toLocaleString()}
+                                        </Text>
+                                    </>
+                                }
+                            />
+                        </List.Item>
+                    )}
+                />
+            )}
+        </div>
     );
 
     return (
@@ -80,9 +135,11 @@ const MainLayout: React.FC = () => {
                         zIndex: 100,
                     }}
                 >
-                    <Badge count={3}>
-                        <BellOutlined style={{ fontSize: 18, cursor: 'pointer' }} />
-                    </Badge>
+                    <Dropdown overlay={notificationMenu} trigger={['click']} placement="bottomRight">
+                        <Badge count={unreadCount}>
+                            <BellOutlined style={{ fontSize: 18, cursor: 'pointer' }} />
+                        </Badge>
+                    </Dropdown>
                     <Dropdown overlay={userMenu} placement="bottomRight">
                         <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
                             <Avatar icon={<UserOutlined />} />
