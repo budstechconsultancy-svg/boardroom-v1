@@ -199,6 +199,7 @@ class MeetingExecutor:
             AgentOpinion.objects.create(
                 session=self.session,
                 agent=agent,
+                proposal=self.session.proposal,
                 vote=vote,
                 confidence_score=confidence,
                 requires_human_attention=(vote == 'DISAPPROVE' or confidence < 0.65)

@@ -345,7 +345,6 @@ const Meetings: React.FC = () => {
                     )}
                 </Card>
             )}
-            )}
         </div>
     );
 };
