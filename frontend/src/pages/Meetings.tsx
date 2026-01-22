@@ -26,7 +26,11 @@ interface AgentOpinion {
     agent_name: string;
     agent_domain: string;
     proposal_title: string;
-    recommendation: string;
+    analysis: string;
+    suggestions: string[];
+    improvements: Record<string, string[]>;
+    evidence: Array<{type: string; description: string; reference: string}>;
+    vote: string;
     confidence_score: number;
     requires_human_attention: boolean;
     created_at: string;
@@ -142,42 +146,74 @@ const Meetings: React.FC = () => {
             title: 'Agent',
             dataIndex: 'agent_name',
             key: 'agent',
+            width: 150,
             render: (name: string) => <Text style={{ color: '#fff' }}>{name}</Text>
         },
         {
-            title: 'Proposal',
-            dataIndex: 'proposal_title',
-            key: 'proposal',
-            render: (title: string) => <Text style={{ color: '#fff' }}>{title}</Text>
-        },
-        {
-            title: 'Recommendation',
-            dataIndex: 'recommendation',
-            key: 'recommendation',
-            render: (rec: string) => {
+            title: 'Vote',
+            dataIndex: 'vote',
+            key: 'vote',
+            width: 120,
+            render: (vote: string) => {
                 const colors: Record<string, string> = {
                     APPROVE: '#52c41a',
-                    REJECT: '#ff4d4f',
-                    REQUEST_INFO: '#faad14'
+                    DISAPPROVE: '#ff4d4f',
+                    ABSTAIN: '#faad14'
                 };
-                return <Tag color={colors[rec]}>{rec}</Tag>;
+                return <Tag color={colors[vote]}>{vote}</Tag>;
             }
         },
         {
             title: 'Confidence',
             dataIndex: 'confidence_score',
             key: 'confidence',
+            width: 100,
             render: (score: number) => <Text style={{ color: '#8b5cf6' }}>{(score * 100).toFixed(0)}%</Text>
         },
         {
-            title: 'Human Attention',
+            title: 'Analysis',
+            dataIndex: 'analysis',
+            key: 'analysis',
+            width: 250,
+            render: (analysis: string) => <Text style={{ color: 'rgba(255,255,255,0.65)' }}>{analysis?.substring(0, 80)}...</Text>
+        },
+        {
+            title: 'Suggestions',
+            dataIndex: 'suggestions',
+            key: 'suggestions',
+            width: 150,
+            render: (suggestions: string[]) => (
+                <Text style={{ color: '#8b5cf6' }}>{suggestions?.length || 0} suggestions</Text>
+            )
+        },
+        {
+            title: 'Attention',
             dataIndex: 'requires_human_attention',
             key: 'attention',
+            width: 100,
             render: (required: boolean) => (
                 <Tag color={required ? 'warning' : 'success'}>{required ? 'Yes' : 'No'}</Tag>
             )
+        },
+        {
+            title: 'Details',
+            key: 'details',
+            width: 100,
+            render: (_: any, record: AgentOpinion) => (
+                <Button type="link" size="small" style={{ color: '#8b5cf6' }} onClick={() => showOpinionDetails(record)}>
+                    View Full Discussion
+                </Button>
+            )
         }
     ];
+    
+    const [detailsModal, setDetailsModal] = React.useState(false);
+    const [selectedOpinion, setSelectedOpinion] = React.useState<AgentOpinion | null>(null);
+    
+    const showOpinionDetails = (opinion: AgentOpinion) => {
+        setSelectedOpinion(opinion);
+        setDetailsModal(true);
+    };
 
     if (loading && sessions.length === 0) {
         return (
@@ -272,6 +308,113 @@ const Meetings: React.FC = () => {
                         pagination={{ pageSize: 10, position: ['bottomCenter'] }}
                         style={{ padding: '0 24px 24px 24px' }}
                     />
+                </Card>
+            )}
+            
+            {selectedOpinion && (
+                <Card
+                    style={{
+                        marginTop: 24,
+                        backgroundColor: 'rgba(31, 24, 55, 0.6)',
+                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                        borderRadius: 12
+                    }}
+                    title={
+                        <div style={{ color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>Detailed Discussion - {selectedOpinion.agent_name} on {selectedOpinion.proposal_title}</span>
+                            <Button type="text" onClick={() => { setSelectedOpinion(null); setDetailsModal(false); }} style={{ color: '#fff' }}>Close</Button>
+                        </div>
+                    }
+                >
+                    <div style={{ color: '#fff', lineHeight: 1.8 }}>
+                        {/* Vote Summary */}
+                        <div style={{ marginBottom: 24, padding: 16, backgroundColor: 'rgba(139, 92, 246, 0.1)', borderRadius: 8 }}>
+                            <Row gutter={24}>
+                                <Col xs={24} sm={8}>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)' }}>VOTE</div>
+                                        <div style={{
+                                            fontSize: 20,
+                                            fontWeight: 'bold',
+                                            color: selectedOpinion.vote === 'APPROVE' ? '#52c41a' : selectedOpinion.vote === 'DISAPPROVE' ? '#ff4d4f' : '#faad14',
+                                            marginTop: 8
+                                        }}>
+                                            {selectedOpinion.vote}
+                                        </div>
+                                    </div>
+                                </Col>
+                                <Col xs={24} sm={8}>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)' }}>CONFIDENCE</div>
+                                        <div style={{ fontSize: 24, fontWeight: 'bold', color: '#8b5cf6', marginTop: 8 }}>
+                                            {(selectedOpinion.confidence_score * 100).toFixed(0)}%
+                                        </div>
+                                    </div>
+                                </Col>
+                                <Col xs={24} sm={8}>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)' }}>ATTENTION</div>
+                                        <div style={{ fontSize: 16, marginTop: 8 }}>
+                                            {selectedOpinion.requires_human_attention ? (
+                                                <Tag color="warning">Required</Tag>
+                                            ) : (
+                                                <Tag color="success">Routine</Tag>
+                                            )}
+                                        </div>
+                                    </div>
+                                </Col>
+                            </Row>
+                        </div>
+
+                        {/* Analysis */}
+                        <div style={{ marginBottom: 24 }}>
+                            <Title level={5} style={{ color: '#8b5cf6', marginBottom: 12 }}>📋 Analysis</Title>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.85)' }}>{selectedOpinion.analysis}</Text>
+                        </div>
+
+                        {/* Suggestions */}
+                        {selectedOpinion.suggestions && selectedOpinion.suggestions.length > 0 && (
+                            <div style={{ marginBottom: 24 }}>
+                                <Title level={5} style={{ color: '#8b5cf6', marginBottom: 12 }}>💡 Suggestions</Title>
+                                <ul style={{ color: 'rgba(255, 255, 255, 0.85)', paddingLeft: 20 }}>
+                                    {selectedOpinion.suggestions.map((s: string, i: number) => (
+                                        <li key={i}>{s}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        {/* Improvements */}
+                        {selectedOpinion.improvements && Object.keys(selectedOpinion.improvements).length > 0 && (
+                            <div style={{ marginBottom: 24 }}>
+                                <Title level={5} style={{ color: '#8b5cf6', marginBottom: 12 }}>🔧 Proposed Improvements</Title>
+                                {Object.entries(selectedOpinion.improvements).map(([category, items]: [string, any]) => (
+                                    <div key={category} style={{ marginBottom: 12 }}>
+                                        <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, textTransform: 'uppercase' }}>{category.replace(/_/g, ' ')}</div>
+                                        <ul style={{ color: 'rgba(255, 255, 255, 0.85)', paddingLeft: 20, marginTop: 4 }}>
+                                            {items.map((item: string, i: number) => (
+                                                <li key={i}>{item}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Evidence */}
+                        {selectedOpinion.evidence && selectedOpinion.evidence.length > 0 && (
+                            <div style={{ marginBottom: 24 }}>
+                                <Title level={5} style={{ color: '#8b5cf6', marginBottom: 12 }}>📊 Supporting Evidence</Title>
+                                {selectedOpinion.evidence.map((e: any, i: number) => (
+                                    <div key={i} style={{ marginBottom: 12, padding: 12, backgroundColor: 'rgba(139, 92, 246, 0.08)', borderRadius: 6 }}>
+                                        <div style={{ color: '#8b5cf6', fontSize: 12, textTransform: 'uppercase', marginBottom: 4 }}>{e.type}</div>
+                                        <div style={{ color: 'rgba(255, 255, 255, 0.85)', marginBottom: 4 }}>{e.description}</div>
+                                        <div style={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: 12 }}>Ref: {e.reference}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </Card>
             )}
         </div>
