@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Tag, Button, message, Spin, Typography, Row, Col, Statistic, Tabs } from 'antd';
-import { LoadingOutlined, ReloadOutlined, PlayCircleOutlined, CheckCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { Card, Table, Tag, Button, message, Spin, Typography, Row, Col, Statistic, Timeline, Empty } from 'antd';
+import { LoadingOutlined, ReloadOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import apiClient from '../api/client';
 
 const { Title, Text } = Typography;
@@ -9,36 +9,38 @@ const antIcon = <LoadingOutlined style={{ fontSize: 24 }} spin />;
 interface MeetingSession {
     id: number;
     session_date: string;
+    proposal_title: string;
     status: string;
-    proposals_reviewed: number[];
+    total_rounds: number;
     summary: {
-        total_proposals: number;
-        total_opinions: number;
-        attention_required: number;
-        agents_participated: number;
+        vote_counts: {APPROVE: number; DISAPPROVE: number; ABSTAIN: number};
+        overall_recommendation: string;
     };
-    opinions_count: number;
-    attention_required_count: number;
+}
+
+interface DiscussionRound {
+    id: number;
+    round_number: number;
+    agent_name: string;
+    agent_domain: string;
+    statement: string;
+    evidence: Array<{type: string; description: string; reference: string}>;
+    suggestions: string[];
+    created_at: string;
 }
 
 interface AgentOpinion {
     id: number;
     agent_name: string;
-    agent_domain: string;
-    proposal_title: string;
-    analysis: string;
-    suggestions: string[];
-    improvements: Record<string, string[]>;
-    evidence: Array<{type: string; description: string; reference: string}>;
     vote: string;
     confidence_score: number;
     requires_human_attention: boolean;
-    created_at: string;
 }
 
 const Meetings: React.FC = () => {
     const [sessions, setSessions] = useState<MeetingSession[]>([]);
     const [selectedSession, setSelectedSession] = useState<MeetingSession | null>(null);
+    const [rounds, setRounds] = useState<DiscussionRound[]>([]);
     const [opinions, setOpinions] = useState<AgentOpinion[]>([]);
     const [loading, setLoading] = useState(true);
     const [triggering, setTriggering] = useState(false);
@@ -60,13 +62,15 @@ const Meetings: React.FC = () => {
         }
     };
 
-    const fetchOpinions = async (sessionId: number) => {
+    const fetchSessionDetails = async (sessionId: number) => {
         try {
-            const response = await apiClient.get(`/meetings/opinions/?session_id=${sessionId}`);
-            setOpinions(response.data);
+            const response = await apiClient.get(`/meetings/sessions/${sessionId}/`);
+            const session = response.data;
+            setRounds(session.rounds || []);
+            setOpinions(session.opinions || []);
         } catch (error) {
-            console.error('Error fetching opinions:', error);
-            message.error('Failed to load opinions');
+            console.error('Error fetching session details:', error);
+            message.error('Failed to load discussion details');
         }
     };
 
@@ -86,48 +90,52 @@ const Meetings: React.FC = () => {
 
     const handleSessionClick = (session: MeetingSession) => {
         setSelectedSession(session);
-        fetchOpinions(session.id);
+        fetchSessionDetails(session.id);
     };
 
     const sessionColumns = [
         {
+            title: 'Proposal',
+            dataIndex: 'proposal_title',
+            key: 'proposal',
+            render: (title: string) => <Text style={{ color: '#fff' }}>{title}</Text>
+        },
+        {
             title: 'Date',
             dataIndex: 'session_date',
-            key: 'session_date',
+            key: 'date',
             render: (date: string) => <Text style={{ color: '#fff' }}>{new Date(date).toLocaleString()}</Text>
         },
         {
-            title: 'Proposals',
-            dataIndex: 'summary',
-            key: 'proposals',
-            render: (summary: any) => <Text style={{ color: '#8b5cf6' }}>{summary?.total_proposals || 0}</Text>
-        },
-        {
-            title: 'Opinions',
-            dataIndex: 'summary',
-            key: 'opinions',
-            render: (summary: any) => <Text style={{ color: '#fff' }}>{summary?.total_opinions || 0}</Text>
-        },
-        {
-            title: 'Attention Required',
-            dataIndex: 'summary',
-            key: 'attention',
-            render: (summary: any) => {
-                const count = summary?.attention_required || 0;
-                return <Tag color={count > 0 ? 'warning' : 'success'}>{count}</Tag>;
-            }
+            title: 'Rounds',
+            dataIndex: 'total_rounds',
+            key: 'rounds',
+            render: (rounds: number) => <Text style={{ color: '#8b5cf6' }}>{rounds}</Text>
         },
         {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
             render: (status: string) => {
-                const config: Record<string, { color: string; icon: React.ReactNode }> = {
-                    completed: { color: '#52c41a', icon: <CheckCircleOutlined /> },
-                    in_progress: { color: '#faad14', icon: <ClockCircleOutlined /> },
-                    failed: { color: '#ff4d4f', icon: <CheckCircleOutlined /> }
+                const colors: Record<string, string> = {
+                    completed: '#52c41a',
+                    in_progress: '#faad14',
+                    failed: '#ff4d4f'
                 };
-                return <Tag icon={config[status]?.icon} color={config[status]?.color}>{status.toUpperCase()}</Tag>;
+                return <Tag color={colors[status]}>{status.toUpperCase()}</Tag>;
+            }
+        },
+        {
+            title: 'Recommendation',
+            dataIndex: ['summary', 'overall_recommendation'],
+            key: 'recommendation',
+            render: (rec: string) => {
+                const colors: Record<string, string> = {
+                    APPROVE: '#52c41a',
+                    DISAPPROVE: '#ff4d4f',
+                    SPLIT: '#faad14'
+                };
+                return <Tag color={colors[rec]}>{rec}</Tag>;
             }
         },
         {
@@ -135,85 +143,11 @@ const Meetings: React.FC = () => {
             key: 'actions',
             render: (_: any, record: MeetingSession) => (
                 <Button type="link" onClick={() => handleSessionClick(record)} style={{ color: '#8b5cf6' }}>
-                    View Details
+                    View Discussion
                 </Button>
             )
         }
     ];
-
-    const opinionColumns = [
-        {
-            title: 'Agent',
-            dataIndex: 'agent_name',
-            key: 'agent',
-            width: 150,
-            render: (name: string) => <Text style={{ color: '#fff' }}>{name}</Text>
-        },
-        {
-            title: 'Vote',
-            dataIndex: 'vote',
-            key: 'vote',
-            width: 120,
-            render: (vote: string) => {
-                const colors: Record<string, string> = {
-                    APPROVE: '#52c41a',
-                    DISAPPROVE: '#ff4d4f',
-                    ABSTAIN: '#faad14'
-                };
-                return <Tag color={colors[vote]}>{vote}</Tag>;
-            }
-        },
-        {
-            title: 'Confidence',
-            dataIndex: 'confidence_score',
-            key: 'confidence',
-            width: 100,
-            render: (score: number) => <Text style={{ color: '#8b5cf6' }}>{(score * 100).toFixed(0)}%</Text>
-        },
-        {
-            title: 'Analysis',
-            dataIndex: 'analysis',
-            key: 'analysis',
-            width: 250,
-            render: (analysis: string) => <Text style={{ color: 'rgba(255,255,255,0.65)' }}>{analysis?.substring(0, 80)}...</Text>
-        },
-        {
-            title: 'Suggestions',
-            dataIndex: 'suggestions',
-            key: 'suggestions',
-            width: 150,
-            render: (suggestions: string[]) => (
-                <Text style={{ color: '#8b5cf6' }}>{suggestions?.length || 0} suggestions</Text>
-            )
-        },
-        {
-            title: 'Attention',
-            dataIndex: 'requires_human_attention',
-            key: 'attention',
-            width: 100,
-            render: (required: boolean) => (
-                <Tag color={required ? 'warning' : 'success'}>{required ? 'Yes' : 'No'}</Tag>
-            )
-        },
-        {
-            title: 'Details',
-            key: 'details',
-            width: 100,
-            render: (_: any, record: AgentOpinion) => (
-                <Button type="link" size="small" style={{ color: '#8b5cf6' }} onClick={() => showOpinionDetails(record)}>
-                    View Full Discussion
-                </Button>
-            )
-        }
-    ];
-    
-    const [detailsModal, setDetailsModal] = React.useState(false);
-    const [selectedOpinion, setSelectedOpinion] = React.useState<AgentOpinion | null>(null);
-    
-    const showOpinionDetails = (opinion: AgentOpinion) => {
-        setSelectedOpinion(opinion);
-        setDetailsModal(true);
-    };
 
     if (loading && sessions.length === 0) {
         return (
@@ -226,6 +160,7 @@ const Meetings: React.FC = () => {
 
     return (
         <div>
+            {/* Header */}
             <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
                 <Title level={3} style={{ margin: 0, color: '#fff' }}>Board Meetings</Title>
                 <div style={{ display: 'flex', gap: 12 }}>
@@ -241,50 +176,15 @@ const Meetings: React.FC = () => {
                         icon={<PlayCircleOutlined />}
                         onClick={handleTriggerMeeting}
                         loading={triggering}
-                        style={{ height: 40 }}
+                        style={{ height: 40, background: '#8b5cf6', borderColor: '#8b5cf6' }}
                     >
                         Trigger Meeting
                     </Button>
                 </div>
             </Row>
 
-            {sessions.length > 0 && (
-                <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
-                    <Col xs={24} sm={8}>
-                        <Card className="glass-card">
-                            <Statistic
-                                title={<span style={{ color: 'rgba(255, 255, 255, 0.65)' }}>Total Sessions</span>}
-                                value={sessions.length}
-                                valueStyle={{ color: '#8b5cf6' }}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={8}>
-                        <Card className="glass-card">
-                            <Statistic
-                                title={<span style={{ color: 'rgba(255, 255, 255, 0.65)' }}>Last Meeting</span>}
-                                value={sessions[0] ? new Date(sessions[0].session_date).toLocaleDateString() : 'N/A'}
-                                valueStyle={{ color: '#fff', fontSize: 20 }}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={8}>
-                        <Card className="glass-card">
-                            <Statistic
-                                title={<span style={{ color: 'rgba(255, 255, 255, 0.65)' }}>Attention Required</span>}
-                                value={sessions[0]?.summary?.attention_required || 0}
-                                valueStyle={{ color: '#faad14' }}
-                            />
-                        </Card>
-                    </Col>
-                </Row>
-            )}
-
-            <Card
-                className="glass-card"
-                title={<span style={{ color: '#fff' }}>Meeting History</span>}
-                styles={{ body: { padding: 0 } }}
-            >
+            {/* Meeting History */}
+            <Card className="glass-card" styles={{ body: { padding: 0 } }}>
                 <Table
                     dataSource={sessions}
                     columns={sessionColumns}
@@ -294,127 +194,140 @@ const Meetings: React.FC = () => {
                 />
             </Card>
 
-            {selectedSession && (
+            {/* Detailed Discussion View */}
+            {selectedSession && rounds.length > 0 && (
                 <Card
                     className="glass-card"
-                    title={<span style={{ color: '#fff' }}>Agent Opinions - {new Date(selectedSession.session_date).toLocaleString()}</span>}
+                    title={<span style={{ color: '#fff' }}>📋 Discussion: {selectedSession.proposal_title}</span>}
                     style={{ marginTop: 24 }}
-                    styles={{ body: { padding: 0 } }}
+                    extra={<Button type="text" onClick={() => setSelectedSession(null)} style={{ color: '#fff' }}>Close</Button>}
                 >
-                    <Table
-                        dataSource={opinions}
-                        columns={opinionColumns}
-                        rowKey="id"
-                        pagination={{ pageSize: 10, position: ['bottomCenter'] }}
-                        style={{ padding: '0 24px 24px 24px' }}
-                    />
+                    {/* Discussion Timeline */}
+                    <div style={{ marginBottom: 24 }}>
+                        <Title level={5} style={{ color: '#8b5cf6', marginBottom: 16 }}>Discussion Rounds ({rounds.length})</Title>
+                        <Timeline
+                            items={rounds.map((round, index) => ({
+                                dot: <div style={{ backgroundColor: '#8b5cf6', width: 12, height: 12, borderRadius: '50%' }} />,
+                                children: (
+                                    <Card
+                                        style={{
+                                            backgroundColor: 'rgba(139, 92, 246, 0.08)',
+                                            border: '1px solid rgba(139, 92, 246, 0.2)',
+                                            marginBottom: 12
+                                        }}
+                                    >
+                                        <div style={{ color: '#8b5cf6', fontWeight: 'bold', marginBottom: 8 }}>
+                                            Round {round.round_number} - {round.agent_name}
+                                        </div>
+                                        <Text style={{ color: '#fff', display: 'block', marginBottom: 12, lineHeight: 1.6 }}>
+                                            {round.statement}
+                                        </Text>
+                                        
+                                        {/* Evidence */}
+                                        {round.evidence && round.evidence.length > 0 && (
+                                            <div style={{ marginBottom: 12 }}>
+                                                <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, fontWeight: 'bold' }}>
+                                                    📊 EVIDENCE:
+                                                </Text>
+                                                {round.evidence.map((e, i) => (
+                                                    <div key={i} style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginTop: 4, marginLeft: 16 }}>
+                                                        <span style={{ color: '#8b5cf6' }}>•</span> {e.description} ({e.reference})
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Suggestions */}
+                                        {round.suggestions && round.suggestions.length > 0 && (
+                                            <div>
+                                                <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, fontWeight: 'bold' }}>
+                                                    💡 SUGGESTIONS:
+                                                </Text>
+                                                {round.suggestions.map((s, i) => (
+                                                    <div key={i} style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginTop: 4, marginLeft: 16 }}>
+                                                        <span style={{ color: '#8b5cf6' }}>•</span> {s}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </Card>
+                                )
+                            }))}
+                        />
+                    </div>
+
+                    {/* Vote Summary */}
+                    <div style={{ marginTop: 24, padding: 16, backgroundColor: 'rgba(139, 92, 246, 0.1)', borderRadius: 8 }}>
+                        <Title level={5} style={{ color: '#8b5cf6', marginBottom: 16 }}>🗳️ Final Voting Results</Title>
+                        <Row gutter={[16, 16]}>
+                            <Col xs={24} sm={8}>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)', marginBottom: 8 }}>APPROVE</div>
+                                    <div style={{ fontSize: 28, fontWeight: 'bold', color: '#52c41a' }}>
+                                        {selectedSession.summary?.vote_counts?.APPROVE || 0}
+                                    </div>
+                                </div>
+                            </Col>
+                            <Col xs={24} sm={8}>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)', marginBottom: 8 }}>DISAPPROVE</div>
+                                    <div style={{ fontSize: 28, fontWeight: 'bold', color: '#ff4d4f' }}>
+                                        {selectedSession.summary?.vote_counts?.DISAPPROVE || 0}
+                                    </div>
+                                </div>
+                            </Col>
+                            <Col xs={24} sm={8}>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)', marginBottom: 8 }}>ABSTAIN</div>
+                                    <div style={{ fontSize: 28, fontWeight: 'bold', color: '#faad14' }}>
+                                        {selectedSession.summary?.vote_counts?.ABSTAIN || 0}
+                                    </div>
+                                </div>
+                            </Col>
+                        </Row>
+                        <div style={{ marginTop: 16, textAlign: 'center', padding: 12, backgroundColor: 'rgba(139, 92, 246, 0.15)', borderRadius: 6 }}>
+                            <Text style={{ color: '#fff', fontSize: 14, fontWeight: 'bold' }}>
+                                Overall: <span style={{ color: '#8b5cf6' }}>{selectedSession.summary?.overall_recommendation}</span>
+                            </Text>
+                        </div>
+                    </div>
+
+                    {/* Individual Votes */}
+                    {opinions.length > 0 && (
+                        <Card style={{ marginTop: 16, backgroundColor: 'rgba(31, 24, 55, 0.4)' }}>
+                            <Title level={5} style={{ color: '#8b5cf6', marginBottom: 12 }}>Individual Agent Votes</Title>
+                            <Row gutter={[8, 8]}>
+                                {opinions.map((opinion) => (
+                                    <Col key={opinion.id} xs={24} sm={12} lg={8}>
+                                        <div style={{
+                                            padding: 12,
+                                            backgroundColor: 'rgba(139, 92, 246, 0.08)',
+                                            borderRadius: 6,
+                                            borderLeft: `3px solid ${opinion.vote === 'APPROVE' ? '#52c41a' : opinion.vote === 'DISAPPROVE' ? '#ff4d4f' : '#faad14'}`
+                                        }}>
+                                            <Text style={{ color: '#fff', fontWeight: 'bold', display: 'block', marginBottom: 4 }}>
+                                                {opinion.agent_name}
+                                            </Text>
+                                            <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, display: 'block', marginBottom: 4 }}>
+                                                Vote: <span style={{ color: '#8b5cf6', fontWeight: 'bold' }}>{opinion.vote}</span>
+                                            </Text>
+                                            <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12 }}>
+                                                Confidence: {(opinion.confidence_score * 100).toFixed(0)}%
+                                            </Text>
+                                        </div>
+                                    </Col>
+                                ))}
+                            </Row>
+                        </Card>
+                    )}
                 </Card>
             )}
-            
-            {selectedOpinion && (
-                <Card
-                    style={{
-                        marginTop: 24,
-                        backgroundColor: 'rgba(31, 24, 55, 0.6)',
-                        border: '1px solid rgba(139, 92, 246, 0.3)',
-                        borderRadius: 12
-                    }}
-                    title={
-                        <div style={{ color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span>Detailed Discussion - {selectedOpinion.agent_name} on {selectedOpinion.proposal_title}</span>
-                            <Button type="text" onClick={() => { setSelectedOpinion(null); setDetailsModal(false); }} style={{ color: '#fff' }}>Close</Button>
-                        </div>
-                    }
-                >
-                    <div style={{ color: '#fff', lineHeight: 1.8 }}>
-                        {/* Vote Summary */}
-                        <div style={{ marginBottom: 24, padding: 16, backgroundColor: 'rgba(139, 92, 246, 0.1)', borderRadius: 8 }}>
-                            <Row gutter={24}>
-                                <Col xs={24} sm={8}>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)' }}>VOTE</div>
-                                        <div style={{
-                                            fontSize: 20,
-                                            fontWeight: 'bold',
-                                            color: selectedOpinion.vote === 'APPROVE' ? '#52c41a' : selectedOpinion.vote === 'DISAPPROVE' ? '#ff4d4f' : '#faad14',
-                                            marginTop: 8
-                                        }}>
-                                            {selectedOpinion.vote}
-                                        </div>
-                                    </div>
-                                </Col>
-                                <Col xs={24} sm={8}>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)' }}>CONFIDENCE</div>
-                                        <div style={{ fontSize: 24, fontWeight: 'bold', color: '#8b5cf6', marginTop: 8 }}>
-                                            {(selectedOpinion.confidence_score * 100).toFixed(0)}%
-                                        </div>
-                                    </div>
-                                </Col>
-                                <Col xs={24} sm={8}>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)' }}>ATTENTION</div>
-                                        <div style={{ fontSize: 16, marginTop: 8 }}>
-                                            {selectedOpinion.requires_human_attention ? (
-                                                <Tag color="warning">Required</Tag>
-                                            ) : (
-                                                <Tag color="success">Routine</Tag>
-                                            )}
-                                        </div>
-                                    </div>
-                                </Col>
-                            </Row>
-                        </div>
 
-                        {/* Analysis */}
-                        <div style={{ marginBottom: 24 }}>
-                            <Title level={5} style={{ color: '#8b5cf6', marginBottom: 12 }}>📋 Analysis</Title>
-                            <Text style={{ color: 'rgba(255, 255, 255, 0.85)' }}>{selectedOpinion.analysis}</Text>
-                        </div>
-
-                        {/* Suggestions */}
-                        {selectedOpinion.suggestions && selectedOpinion.suggestions.length > 0 && (
-                            <div style={{ marginBottom: 24 }}>
-                                <Title level={5} style={{ color: '#8b5cf6', marginBottom: 12 }}>💡 Suggestions</Title>
-                                <ul style={{ color: 'rgba(255, 255, 255, 0.85)', paddingLeft: 20 }}>
-                                    {selectedOpinion.suggestions.map((s: string, i: number) => (
-                                        <li key={i}>{s}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-
-                        {/* Improvements */}
-                        {selectedOpinion.improvements && Object.keys(selectedOpinion.improvements).length > 0 && (
-                            <div style={{ marginBottom: 24 }}>
-                                <Title level={5} style={{ color: '#8b5cf6', marginBottom: 12 }}>🔧 Proposed Improvements</Title>
-                                {Object.entries(selectedOpinion.improvements).map(([category, items]: [string, any]) => (
-                                    <div key={category} style={{ marginBottom: 12 }}>
-                                        <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, textTransform: 'uppercase' }}>{category.replace(/_/g, ' ')}</div>
-                                        <ul style={{ color: 'rgba(255, 255, 255, 0.85)', paddingLeft: 20, marginTop: 4 }}>
-                                            {items.map((item: string, i: number) => (
-                                                <li key={i}>{item}</li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Evidence */}
-                        {selectedOpinion.evidence && selectedOpinion.evidence.length > 0 && (
-                            <div style={{ marginBottom: 24 }}>
-                                <Title level={5} style={{ color: '#8b5cf6', marginBottom: 12 }}>📊 Supporting Evidence</Title>
-                                {selectedOpinion.evidence.map((e: any, i: number) => (
-                                    <div key={i} style={{ marginBottom: 12, padding: 12, backgroundColor: 'rgba(139, 92, 246, 0.08)', borderRadius: 6 }}>
-                                        <div style={{ color: '#8b5cf6', fontSize: 12, textTransform: 'uppercase', marginBottom: 4 }}>{e.type}</div>
-                                        <div style={{ color: 'rgba(255, 255, 255, 0.85)', marginBottom: 4 }}>{e.description}</div>
-                                        <div style={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: 12 }}>Ref: {e.reference}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+            {selectedSession && rounds.length === 0 && (
+                <Card style={{ marginTop: 24 }}>
+                    <Empty
+                        description={<Text style={{ color: 'rgba(255, 255, 255, 0.65)' }}>No discussion rounds available</Text>}
+                    />
                 </Card>
             )}
         </div>
