@@ -71,7 +71,7 @@ const Meetings: React.FC = () => {
         try {
             const response = await apiClient.post('/meetings/meetings/trigger/');
             message.success('Board meeting completed successfully!');
-            fetchSessions();
+            await fetchSessions();
         } catch (error: any) {
             console.error('Error triggering meeting:', error);
             message.error(error.response?.data?.error || 'Failed to trigger meeting');
