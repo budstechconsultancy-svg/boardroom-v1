@@ -43,6 +43,7 @@ const Meetings: React.FC = () => {
     const [rounds, setRounds] = useState<DiscussionRound[]>([]);
     const [opinions, setOpinions] = useState<AgentOpinion[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingDetails, setLoadingDetails] = useState(false);
     const [triggering, setTriggering] = useState(false);
 
     useEffect(() => {
@@ -53,6 +54,7 @@ const Meetings: React.FC = () => {
         setLoading(true);
         try {
             const response = await apiClient.get('/meetings/sessions/');
+            console.log('Fetched sessions:', response.data);
             setSessions(response.data);
         } catch (error) {
             console.error('Error fetching sessions:', error);
@@ -63,14 +65,21 @@ const Meetings: React.FC = () => {
     };
 
     const fetchSessionDetails = async (sessionId: number) => {
+        setLoadingDetails(true);
         try {
             const response = await apiClient.get(`/meetings/sessions/${sessionId}/`);
+            console.log('Fetched session details:', response.data);
             const session = response.data;
             setRounds(session.rounds || []);
             setOpinions(session.opinions || []);
+            if (!session.rounds || session.rounds.length === 0) {
+                message.info('This session has no discussion rounds (old format)');
+            }
         } catch (error) {
             console.error('Error fetching session details:', error);
             message.error('Failed to load discussion details');
+        } finally {
+            setLoadingDetails(false);
         }
     };
 
@@ -78,6 +87,7 @@ const Meetings: React.FC = () => {
         setTriggering(true);
         try {
             const response = await apiClient.post('/meetings/meetings/trigger/');
+            console.log('Meeting triggered:', response.data);
             message.success('Board meeting completed successfully!');
             await fetchSessions();
         } catch (error: any) {
@@ -195,13 +205,20 @@ const Meetings: React.FC = () => {
             </Card>
 
             {/* Detailed Discussion View */}
-            {selectedSession && rounds.length > 0 && (
+            {selectedSession && (
                 <Card
                     className="glass-card"
                     title={<span style={{ color: '#fff' }}>📋 Discussion: {selectedSession.proposal_title}</span>}
                     style={{ marginTop: 24 }}
                     extra={<Button type="text" onClick={() => setSelectedSession(null)} style={{ color: '#fff' }}>Close</Button>}
                 >
+                    {loadingDetails ? (
+                        <div style={{ textAlign: 'center', padding: '40px' }}>
+                            <Spin indicator={antIcon} />
+                            <div style={{ marginTop: '16px', color: 'rgba(255, 255, 255, 0.65)' }}>Loading discussion details...</div>
+                        </div>
+                    ) : rounds.length > 0 ? (
+                        <>
                     {/* Discussion Timeline */}
                     <div style={{ marginBottom: 24 }}>
                         <Title level={5} style={{ color: '#8b5cf6', marginBottom: 16 }}>Discussion Rounds ({rounds.length})</Title>
@@ -320,15 +337,14 @@ const Meetings: React.FC = () => {
                             </Row>
                         </Card>
                     )}
+                        </>
+                    ) : (
+                        <Empty
+                            description={<Text style={{ color: 'rgba(255, 255, 255, 0.65)' }}>No discussion rounds available (old format session)</Text>}
+                        />
+                    )}
                 </Card>
             )}
-
-            {selectedSession && rounds.length === 0 && (
-                <Card style={{ marginTop: 24 }}>
-                    <Empty
-                        description={<Text style={{ color: 'rgba(255, 255, 255, 0.65)' }}>No discussion rounds available</Text>}
-                    />
-                </Card>
             )}
         </div>
     );
