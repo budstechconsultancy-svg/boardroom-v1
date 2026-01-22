@@ -106,7 +106,7 @@ const ProposalDetail: React.FC = () => {
         <div style={{ padding: 0, height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
             {/* Header Card */}
             <div style={{ flexShrink: 0, marginBottom: 16 }}>
-                <Card className="glass-card" bodyStyle={{ padding: '20px 24px' }}>
+                <Card className="glass-card" styles={{ body: { padding: '20px 24px' } }}>
                     <Row gutter={[24, 16]} align="middle">
                         <Col span={16}>
                             <Space size="middle" align="baseline">
@@ -150,7 +150,7 @@ const ProposalDetail: React.FC = () => {
                         className="glass-card"
                         title={<span style={{ color: '#fff' }}><MessageOutlined style={{ marginRight: 8 }} /> Multi-Round Deliberation</span>}
                         style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-                        bodyStyle={{ flex: 1, padding: '24px', overflowY: 'auto' }}
+                        styles={{ body: { flex: 1, padding: '24px', overflowY: 'auto' } }}
                         extra={<Button type="link" onClick={refreshProposals} icon={<SyncOutlined />} style={{ color: '#8b5cf6' }}>Refresh</Button>}
                     >
                         <Timeline mode="left">

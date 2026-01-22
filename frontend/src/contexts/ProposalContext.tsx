@@ -157,6 +157,58 @@ export const ProposalProvider: React.FC<{ children: ReactNode }> = ({ children }
         refreshProposals();
     }, []);
 
+    // Recurring notification for pending proposals every 10 minutes
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const pendingCount = proposals.filter(p => p.status === 'deliberating' || p.status === 'voting').length;
+            if (pendingCount > 0) {
+                addNotification({
+                    type: 'proposal',
+                    title: 'Pending Proposals Alert',
+                    message: `Action Required: There are ${pendingCount} proposals awaiting deliberation or approval. Please review them.`
+                });
+            }
+        }, 10 * 60 * 1000); // 10 minutes
+
+        return () => clearInterval(interval);
+    }, [proposals, addNotification]);
+
+    // Listen for meeting completion events (would be WebSocket in production)
+    useEffect(() => {
+        // This is a placeholder for WebSocket/polling logic
+        // In production, you'd listen for real-time events
+        const checkMeetingCompletion = async () => {
+            try {
+                // Check for recent meeting sessions
+                const response = await apiClient.get('/meetings/sessions/?status=completed');
+                const sessions = response.data;
+
+                if (sessions && sessions.length > 0) {
+                    const latestSession = sessions[0];
+                    const sessionTime = new Date(latestSession.session_date).getTime();
+                    const now = Date.now();
+
+                    // If session completed in last 5 minutes, show notification
+                    if (now - sessionTime < 5 * 60 * 1000) {
+                        const summary = latestSession.summary || {};
+                        addNotification({
+                            type: 'decision',
+                            title: 'Board Meeting Completed',
+                            message: `Daily board meeting reviewed ${summary.total_proposals || 0} proposals. ${summary.attention_required || 0} require human attention.`
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking meeting completion:', error);
+            }
+        };
+
+        // Check every 2 minutes
+        const interval = setInterval(checkMeetingCompletion, 2 * 60 * 1000);
+
+        return () => clearInterval(interval);
+    }, [addNotification]);
+
     const addProposal = async (newProposalData: Omit<Proposal, 'id' | 'createdAt' | 'status' | 'riskTier' | 'confidence'>) => {
         try {
             const djangoData = mapProposalToDjango({

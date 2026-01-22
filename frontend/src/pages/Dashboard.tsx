@@ -23,7 +23,8 @@ const Dashboard: React.FC = () => {
     if (loading && proposals.length === 0) {
         return (
             <div style={{ textAlign: 'center', padding: '50px' }}>
-                <Spin indicator={antIcon} tip="Loading Dashboard..." />
+                <Spin indicator={antIcon} />
+                <div style={{ marginTop: '16px', color: 'rgba(255, 255, 255, 0.65)' }}>Loading Dashboard...</div>
             </div>
         );
     }
@@ -110,7 +111,7 @@ const Dashboard: React.FC = () => {
             <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
                 {kpiData.map((kpi, index) => (
                     <Col xs={24} sm={12} lg={6} key={index}>
-                        <Card className="glass-card" bodyStyle={{ padding: '24px' }}>
+                        <Card className="glass-card" styles={{ body: { padding: '24px' } }}>
                             <Statistic
                                 title={<span style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{kpi.title}</span>}
                                 value={kpi.value}

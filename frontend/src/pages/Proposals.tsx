@@ -111,7 +111,8 @@ const Proposals: React.FC = () => {
     if (loading) {
         return (
             <div style={{ textAlign: 'center', padding: '100px' }}>
-                <Spin indicator={<LoadingOutlined style={{ fontSize: 40, color: '#8b5cf6' }} spin />} tip="Synchronizing Proposal Repository..." />
+                <Spin indicator={<LoadingOutlined style={{ fontSize: 40, color: '#8b5cf6' }} spin />} />
+                <div style={{ marginTop: '16px', color: 'rgba(255, 255, 255, 0.65)' }}>Synchronizing Proposal Repository...</div>
             </div>
         );
     }
@@ -130,7 +131,7 @@ const Proposals: React.FC = () => {
                         </Button>
                     </Space>
                 }
-                bodyStyle={{ padding: '0' }}
+                styles={{ body: { padding: '0' } }}
             >
                 <Table
                     dataSource={[...proposals].sort((a, b) => Number(b.id) - Number(a.id))}

@@ -67,41 +67,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
     const unreadCount = notifications.filter(n => !n.read).length;
 
-    // Simulate checking for new proposals and decisions every 30 minutes
-    useEffect(() => {
-        const checkInterval = 30 * 60 * 1000; // 30 minutes in milliseconds
-
-        const checkForUpdates = () => {
-            // In production, this would call an API to check for new proposals/decisions
-            // For now, simulate random notifications
-            const random = Math.random();
-
-            if (random > 0.7) {
-                addNotification({
-                    type: 'proposal',
-                    title: 'New Proposal Submitted',
-                    message: 'A new proposal "Cloud Migration Strategy" has been submitted for review.'
-                });
-            } else if (random > 0.4) {
-                addNotification({
-                    type: 'decision',
-                    title: 'Decision Made',
-                    message: 'Agents have reached a decision on "Q1 Budget Reallocation" - Approved with 92% confidence.'
-                });
-            }
-        };
-
-        // Check immediately on mount
-        const timer = setTimeout(checkForUpdates, 5000); // First check after 5 seconds
-
-        // Then check every 30 minutes
-        const interval = setInterval(checkForUpdates, checkInterval);
-
-        return () => {
-            clearTimeout(timer);
-            clearInterval(interval);
-        };
-    }, []);
+    // Notifications are now managed by ProposalContext for real data synchronization
 
     return (
         <NotificationContext.Provider

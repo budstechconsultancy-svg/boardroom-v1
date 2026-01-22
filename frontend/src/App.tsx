@@ -6,6 +6,7 @@ import Proposals from './pages/Proposals';
 import ProposalDetail from './pages/ProposalDetail';
 import Agents from './pages/Agents';
 import Connectors from './pages/Connectors';
+import Meetings from './pages/Meetings';
 import Admin from './pages/Admin';
 import Login from './pages/Login';
 
@@ -20,6 +21,7 @@ const App: React.FC = () => {
                 <Route path="proposals/:id" element={<ProposalDetail />} />
                 <Route path="agents" element={<Agents />} />
                 <Route path="connectors" element={<Connectors />} />
+                <Route path="meetings" element={<Meetings />} />
                 <Route path="admin/*" element={<Admin />} />
             </Route>
         </Routes>

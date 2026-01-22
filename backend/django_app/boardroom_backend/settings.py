@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'proposals',
     'connectors',
     'settings',
+    'meetings',
 ]
 
 MIDDLEWARE = [

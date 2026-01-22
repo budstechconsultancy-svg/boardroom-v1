@@ -28,6 +28,7 @@ const MainLayout: React.FC = () => {
         { key: '/proposals', icon: <FileTextOutlined />, label: 'Proposals' },
         { key: '/agents', icon: <RobotOutlined />, label: 'CXO Agents' },
         { key: '/connectors', icon: <ApiOutlined />, label: 'Connectors' },
+        { key: '/meetings', icon: <BellOutlined />, label: 'Meetings' },
         { key: '/admin', icon: <SettingOutlined />, label: 'Admin' },
     ];
 
@@ -140,12 +141,12 @@ const MainLayout: React.FC = () => {
                         zIndex: 1000,
                     }}
                 >
-                    <Dropdown overlay={notificationMenu} trigger={['click']} placement="bottomRight">
+                    <Dropdown menu={{ items: notificationMenu }} trigger={['click']} placement="bottomRight">
                         <Badge count={unreadCount} color="#8b5cf6">
                             <BellOutlined style={{ fontSize: 18, cursor: 'pointer', color: 'rgba(255, 255, 255, 0.85)' }} />
                         </Badge>
                     </Dropdown>
-                    <Dropdown overlay={userMenu} placement="bottomRight">
+                    <Dropdown menu={{ items: userMenu }} placement="bottomRight">
                         <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
                             <Avatar icon={<UserOutlined style={{ color: '#fff' }} />} style={{ backgroundColor: '#8b5cf6' }} />
                             <Text style={{ color: '#fff' }}>Admin User</Text>

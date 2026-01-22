@@ -116,7 +116,8 @@ const Agents: React.FC = () => {
     if (loading) {
         return (
             <div style={{ textAlign: 'center', padding: '50px' }}>
-                <Spin indicator={antIcon} tip="Loading Agents..." />
+                <Spin indicator={antIcon} />
+                <div style={{ marginTop: '16px', color: 'rgba(255, 255, 255, 0.65)' }}>Loading Agents...</div>
             </div>
         );
     }
@@ -148,7 +149,7 @@ const Agents: React.FC = () => {
                     <Col xs={24} sm={12} lg={8} key={agent.domain}>
                         <Card
                             className={`glass-card ${agent.domain === 'ceo' ? 'glass-card-active' : ''}`}
-                            bodyStyle={{ padding: '24px' }}
+                            styles={{ body: { padding: '24px' } }}
                         >
                             <Row align="middle" gutter={16} style={{ marginBottom: 20 }}>
                                 <Col>

@@ -8,31 +8,37 @@ const antIcon = <LoadingOutlined style={{ fontSize: 24 }} spin />;
 
 const Admin: React.FC = () => {
     const [settings, setSettings] = useState<any[]>([]);
+    const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [form] = Form.useForm();
 
-    const fetchSettings = async () => {
+    const fetchAdminData = async () => {
         setLoading(true);
         try {
-            const response = await apiClient.get('/settings/');
-            setSettings(response.data);
+            const [settingsData, usersData] = await Promise.all([
+                apiClient.get('/settings/').then(r => r.data),
+                apiClient.get('/users/').then(r => r.data)
+            ]);
+
+            setSettings(settingsData);
+            setUsers(usersData);
 
             // Map settings to form fields
             const formValues: any = {};
-            response.data.forEach((s: any) => {
+            settingsData.forEach((s: any) => {
                 formValues[s.key] = s.value;
             });
             form.setFieldsValue(formValues);
         } catch (error) {
-            console.error('Error fetching settings:', error);
-            message.error('Failed to load settings.');
+            console.error('Error fetching admin data:', error);
+            message.error('Failed to load admin data.');
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchSettings();
+        fetchAdminData();
     }, []);
 
     const handleSaveSettings = async (values: any) => {
@@ -47,7 +53,7 @@ const Admin: React.FC = () => {
                 }
             }
             message.success('Settings saved successfully!');
-            fetchSettings();
+            fetchAdminData();
         } catch (error) {
             console.error('Error saving settings:', error);
             message.error('Failed to save settings.');
@@ -56,16 +62,11 @@ const Admin: React.FC = () => {
         }
     };
 
-    const users = [
-        { id: 1, name: 'Admin User', email: 'admin@company.com', role: 'Owner', status: 'active' },
-        { id: 2, name: 'CFO', email: 'cfo@company.com', role: 'CXO', status: 'active' },
-        { id: 3, name: 'Auditor', email: 'auditor@company.com', role: 'Auditor', status: 'active' },
-    ];
-
     if (loading && settings.length === 0) {
         return (
             <div style={{ textAlign: 'center', padding: '50px' }}>
-                <Spin indicator={antIcon} tip="Loading Admin Panel..." />
+                <Spin indicator={antIcon} />
+                <div style={{ marginTop: '16px', color: 'rgba(255, 255, 255, 0.65)' }}>Loading Admin Panel...</div>
             </div>
         );
     }
@@ -121,15 +122,15 @@ const Admin: React.FC = () => {
                         key: 'users',
                         label: <span style={{ padding: '0 12px' }}>👥 User Management</span>,
                         children: (
-                            <Card className="glass-card" title={<span style={{ color: '#fff' }}>Authorized Council Members</span>} extra={<Button type="primary" icon={<PlusOutlined />}>Add Member</Button>} bodyStyle={{ padding: 0 }}>
+                            <Card className="glass-card" title={<span style={{ color: '#fff' }}>Authorized Council Members</span>} extra={<Button type="primary" icon={<PlusOutlined />}>Add Member</Button>} styles={{ body: { padding: 0 } }}>
                                 <Table
                                     dataSource={users}
                                     style={{ padding: '0 24px 24px 24px' }}
                                     columns={[
-                                        { title: 'Name', dataIndex: 'name', render: (t: string) => <Text style={{ color: '#fff' }}>{t}</Text> },
+                                        { title: 'Name', dataIndex: 'username', render: (t: string) => <Text style={{ color: '#fff' }}>{t}</Text> },
                                         { title: 'Email', dataIndex: 'email', render: (t: string) => <Text type="secondary">{t}</Text> },
                                         { title: 'Role', dataIndex: 'role', render: (r: string) => <Tag style={{ background: 'rgba(139, 92, 246, 0.1)', border: 'none', color: '#8b5cf6' }}>{r}</Tag> },
-                                        { title: 'Status', dataIndex: 'status', render: (s: string) => <Tag color="success" style={{ background: 'transparent' }}>{s.toUpperCase()}</Tag> },
+                                        { title: 'Status', dataIndex: 'status', render: (s: string) => <Tag color="success" style={{ background: 'transparent' }}>{(s || 'active').toUpperCase()}</Tag> },
                                         { title: 'Actions', render: () => <Button type="link" style={{ color: '#8b5cf6' }}>Edit</Button> },
                                     ]}
                                     rowKey="id"
@@ -142,7 +143,7 @@ const Admin: React.FC = () => {
                         key: 'audit',
                         label: <span style={{ padding: '0 12px' }}>📜 Compliance Audit</span>,
                         children: (
-                            <Card className="glass-card" title={<span style={{ color: '#fff' }}>Immuta-Logs</span>} extra={<Button icon={<DownloadOutlined />}>Export Bundle</Button>} bodyStyle={{ padding: 0 }}>
+                            <Card className="glass-card" title={<span style={{ color: '#fff' }}>Immuta-Logs</span>} extra={<Button icon={<DownloadOutlined />}>Export Bundle</Button>} styles={{ body: { padding: 0 } }}>
                                 <Table
                                     dataSource={[
                                         { time: '2024-01-20 10:30', event: 'Proposal Approved', user: 'CEO', details: 'P-001' },

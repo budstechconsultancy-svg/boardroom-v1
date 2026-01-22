@@ -15,9 +15,14 @@ from prometheus_client import make_asgi_app
 # Import routers
 from app.api import agents, health, proposals, rag
 
+# Import agents to register them
+import app.agents
+
 # Import shared components
 import sys
-sys.path.insert(0, "..")
+import os
+# Add backend directory to path to allow importing shared
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from shared.config import settings
 from shared.database import init_database, close_database
 

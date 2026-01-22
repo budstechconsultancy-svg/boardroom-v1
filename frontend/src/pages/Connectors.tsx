@@ -144,7 +144,8 @@ const Connectors: React.FC = () => {
     if (loading) {
         return (
             <div style={{ textAlign: 'center', padding: '100px' }}>
-                <Spin indicator={<LoadingOutlined style={{ fontSize: 40, color: '#8b5cf6' }} spin />} tip="Establishing ERP Handshakes..." />
+                <Spin indicator={<LoadingOutlined style={{ fontSize: 40, color: '#8b5cf6' }} spin />} />
+                <div style={{ marginTop: '16px', color: 'rgba(255, 255, 255, 0.65)' }}>Establishing ERP Handshakes...</div>
             </div>
         );
     }
@@ -155,7 +156,7 @@ const Connectors: React.FC = () => {
                 className="glass-card"
                 title={<span style={{ color: '#fff' }}>Strategic Data Connectors</span>}
                 extra={<Button type="primary" icon={<PlusOutlined />} onClick={showAddModal}>Add Link</Button>}
-                bodyStyle={{ padding: 0 }}
+                styles={{ body: { padding: 0 } }}
             >
                 <Table
                     dataSource={connectors}
