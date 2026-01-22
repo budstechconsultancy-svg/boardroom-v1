@@ -25,10 +25,21 @@ class MeetingExecutor:
         """Execute meeting with multi-round discussion"""
         logger.info(f'Starting board meeting {self.meeting.id}')
         
-        # Get the next proposal
+        # Get proposals to avoid recent ones (avoid duplicates)
+        recent_sessions = MeetingSession.objects.filter(
+            meeting=self.meeting
+        ).order_by('-session_date')[:5]
+        recent_proposal_ids = [s.proposal_id for s in recent_sessions if s.proposal_id]
+        
         proposal = Proposal.objects.filter(
             status__in=['deliberating', 'voting']
-        ).order_by('created_at').first()
+        ).exclude(id__in=recent_proposal_ids).order_by('created_at').first()
+        
+        # If all active proposals have been discussed, pick any active one
+        if not proposal:
+            proposal = Proposal.objects.filter(
+                status__in=['deliberating', 'voting']
+            ).order_by('?').first()
         
         if not proposal:
             logger.warning('No active proposals to review')

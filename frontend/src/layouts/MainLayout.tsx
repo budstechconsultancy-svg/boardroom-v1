@@ -32,16 +32,14 @@ const MainLayout: React.FC = () => {
         { key: '/admin', icon: <SettingOutlined />, label: 'Admin' },
     ];
 
-    const userMenu = (
-        <Menu
-            items={[
-                { key: 'profile', icon: <UserOutlined />, label: 'Profile' },
-                { key: 'settings', icon: <SettingOutlined />, label: 'Settings' },
-                { type: 'divider' },
-                { key: 'logout', icon: <LogoutOutlined />, label: 'Logout', danger: true },
-            ]}
-        />
-    );
+    const userMenu = {
+        items: [
+            { key: 'profile', icon: <UserOutlined />, label: 'Profile' },
+            { key: 'settings', icon: <SettingOutlined />, label: 'Settings' },
+            { type: 'divider' },
+            { key: 'logout', icon: <LogoutOutlined />, label: 'Logout', danger: true },
+        ]
+    };
 
     const notificationMenu = (
         <div style={{ width: 350, maxHeight: 400, overflow: 'auto', background: '#1a0b3d', borderRadius: 12, border: '1px solid rgba(139, 92, 246, 0.3)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
@@ -141,12 +139,12 @@ const MainLayout: React.FC = () => {
                         zIndex: 1000,
                     }}
                 >
-                    <Dropdown menu={{ items: notificationMenu }} trigger={['click']} placement="bottomRight">
+                    <Dropdown placement="bottomRight" trigger={['click']} popupRender={() => notificationMenu}>
                         <Badge count={unreadCount} color="#8b5cf6">
                             <BellOutlined style={{ fontSize: 18, cursor: 'pointer', color: 'rgba(255, 255, 255, 0.85)' }} />
                         </Badge>
                     </Dropdown>
-                    <Dropdown menu={{ items: userMenu }} placement="bottomRight">
+                    <Dropdown menu={userMenu} placement="bottomRight">
                         <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
                             <Avatar icon={<UserOutlined style={{ color: '#fff' }} />} style={{ backgroundColor: '#8b5cf6' }} />
                             <Text style={{ color: '#fff' }}>Admin User</Text>

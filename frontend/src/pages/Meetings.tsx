@@ -54,7 +54,6 @@ const Meetings: React.FC = () => {
         setLoading(true);
         try {
             const response = await apiClient.get('/meetings/sessions/');
-            console.log('Fetched sessions:', response.data);
             setSessions(response.data);
         } catch (error) {
             console.error('Error fetching sessions:', error);
@@ -68,7 +67,6 @@ const Meetings: React.FC = () => {
         setLoadingDetails(true);
         try {
             const response = await apiClient.get(`/meetings/sessions/${sessionId}/`);
-            console.log('Fetched session details:', response.data);
             const session = response.data;
             setRounds(session.rounds || []);
             setOpinions(session.opinions || []);
@@ -87,7 +85,6 @@ const Meetings: React.FC = () => {
         setTriggering(true);
         try {
             const response = await apiClient.post('/meetings/meetings/trigger/');
-            console.log('Meeting triggered:', response.data);
             message.success('Board meeting completed successfully!');
             await fetchSessions();
         } catch (error: any) {

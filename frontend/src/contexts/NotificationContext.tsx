@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { notification } from 'antd';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { App } from 'antd';
 
 interface Notification {
     id: string;
@@ -31,6 +31,7 @@ export const useNotifications = () => {
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const { notification } = App.useApp();
 
     const addNotification = (notif: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
         const newNotification: Notification = {
@@ -42,7 +43,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
         setNotifications(prev => [newNotification, ...prev]);
 
-        // Show antd notification
+        // Show antd notification through App context (supports theme)
         notification.info({
             message: notif.title,
             description: notif.message,

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Card, Row, Col, Avatar, Tag, Typography, Switch, Button, InputNumber, message, Modal, Input, Select, Form, Divider, Alert, Spin } from 'antd';
-import { RobotOutlined, SettingOutlined, SaveOutlined, PlusOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Avatar, Tag, Typography, Switch, Button, InputNumber, message, Modal, Input, Select, Form, Divider, Alert, Spin, Space, Popconfirm } from 'antd';
+import { RobotOutlined, SettingOutlined, SaveOutlined, PlusOutlined, LoadingOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useAgents } from '../contexts/AgentContext';
 
 const { Title, Text } = Typography;
@@ -15,7 +15,7 @@ const colorMap: Record<string, string> = {
 const antIcon = <LoadingOutlined style={{ fontSize: 24 }} spin />;
 
 const Agents: React.FC = () => {
-    const { agents, loading, addAgent, updateAgent, toggleAgent, refreshAgents } = useAgents();
+    const { agents, loading, addAgent, updateAgent, toggleAgent, deleteAgent, refreshAgents } = useAgents();
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
     const [isConfigureModalVisible, setIsConfigureModalVisible] = useState(false);
     const [selectedAgent, setSelectedAgent] = useState<any>(null);
@@ -111,6 +111,20 @@ const Agents: React.FC = () => {
         setIsConfigureModalVisible(false);
         setSelectedAgent(null);
         configureForm.resetFields();
+    };
+
+    const handleDeleteAgent = async () => {
+        if (selectedAgent) {
+            try {
+                await deleteAgent(selectedAgent.domain);
+                message.success(`${selectedAgent.name} deleted successfully!`);
+                setIsConfigureModalVisible(false);
+                setSelectedAgent(null);
+                configureForm.resetFields();
+            } catch (error) {
+                message.error('Failed to delete agent');
+            }
+        }
     };
 
     if (loading) {
@@ -307,6 +321,27 @@ const Agents: React.FC = () => {
                 onOk={handleConfigureAgent}
                 onCancel={handleCancelConfigure}
                 okText="Save Changes"
+                footer={[
+                    <Popconfirm
+                        key="delete"
+                        title="Delete Agent"
+                        description={`Are you sure you want to delete ${selectedAgent?.name}? This action cannot be undone.`}
+                        onConfirm={handleDeleteAgent}
+                        okText="Yes, Delete"
+                        okType="danger"
+                        cancelText="No, Cancel"
+                    >
+                        <Button type="primary" danger icon={<DeleteOutlined />}>
+                            Delete Agent
+                        </Button>
+                    </Popconfirm>,
+                    <Button key="cancel" onClick={handleCancelConfigure}>
+                        Cancel
+                    </Button>,
+                    <Button key="submit" type="primary" onClick={handleConfigureAgent}>
+                        Save Changes
+                    </Button>,
+                ]}
             >
                 <Form
                     form={configureForm}

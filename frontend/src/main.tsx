@@ -9,7 +9,7 @@ import { AgentProvider } from './contexts/AgentContext';
 import { ConnectorProvider } from './contexts/ConnectorContext';
 import './index.css';
 
-import { ConfigProvider, theme } from 'antd';
+import { ConfigProvider, theme, App as AntApp } from 'antd';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
@@ -23,17 +23,19 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 },
             }}
         >
-            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-                <NotificationProvider>
-                    <AgentProvider>
-                        <ConnectorProvider>
-                            <ProposalProvider>
-                                <App />
-                            </ProposalProvider>
-                        </ConnectorProvider>
-                    </AgentProvider>
-                </NotificationProvider>
-            </BrowserRouter>
+            <AntApp>
+                <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                    <NotificationProvider>
+                        <AgentProvider>
+                            <ConnectorProvider>
+                                <ProposalProvider>
+                                    <App />
+                                </ProposalProvider>
+                            </ConnectorProvider>
+                        </AgentProvider>
+                    </NotificationProvider>
+                </BrowserRouter>
+            </AntApp>
         </ConfigProvider>
     </React.StrictMode>
 );

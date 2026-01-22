@@ -20,6 +20,7 @@ interface AgentContextType {
     addAgent: (agent: Agent) => Promise<void>;
     updateAgent: (domain: string, updates: Partial<Agent>) => Promise<void>;
     toggleAgent: (domain: string) => Promise<void>;
+    deleteAgent: (domain: string) => Promise<void>;
     getAgentByDomain: (domain: string) => Agent | undefined;
     refreshAgents: () => Promise<void>;
 }
@@ -115,12 +116,25 @@ export const AgentProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
     };
 
+    const deleteAgent = async (domain: string) => {
+        const agent = agents.find(a => a.domain === domain);
+        if (!agent || !agent.id) return;
+
+        try {
+            await api.delete(`/agents/${agent.id}/`);
+            setAgents(prev => prev.filter(a => a.domain !== domain));
+        } catch (error) {
+            console.error('Failed to delete agent:', error);
+            throw error;
+        }
+    };
+
     const getAgentByDomain = (domain: string) => {
         return agents.find(a => a.domain === domain);
     };
 
     return (
-        <AgentContext.Provider value={{ agents, loading, addAgent, updateAgent, toggleAgent, getAgentByDomain, refreshAgents }}>
+        <AgentContext.Provider value={{ agents, loading, addAgent, updateAgent, toggleAgent, deleteAgent, getAgentByDomain, refreshAgents }}>
             {children}
         </AgentContext.Provider>
     );
