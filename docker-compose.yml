@@ -13,10 +13,9 @@ services:
       MYSQL_USER: boardroom
       MYSQL_PASSWORD: boardroom
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       interval: 10s
@@ -152,7 +151,29 @@ services:
       - boardroom-network
 
   # =============================================================================
-  # BACKEND SERVICES
+  # MONOLITHIC BACKEND (Django)
+  # =============================================================================
+  backend:
+    build:
+      context: ./backend/django_app
+      dockerfile: Dockerfile
+    container_name: boardroom-backend-django
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_NAME=boardroom
+      - DB_USER=boardroom
+      - DB_PASSWORD=boardroom
+      - DB_HOST=mysql
+      - DB_PORT=3306
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - boardroom-network
+
+  # =============================================================================
+  # LEGACY BACKEND SERVICES (Microservices)
   # =============================================================================
   agent-service:
     build:
@@ -299,7 +320,7 @@ services:
       dockerfile: Dockerfile
     container_name: boardroom-frontend
     ports:
-      - "3000:3000"
+      - "33333:3000"
     environment:
       - REACT_APP_API_URL=http://localhost:8000
     depends_on:

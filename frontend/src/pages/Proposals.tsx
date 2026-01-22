@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
-import { Card, Table, Tag, Button, Space, Input, Select, message } from 'antd';
-import { PlusOutlined, SearchOutlined, PrinterOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Card, Table, Tag, Button, Space, Input, Select, message, Spin } from 'antd';
+import { PlusOutlined, SearchOutlined, PrinterOutlined, DownloadOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import CreateProposalModal from '../components/CreateProposalModal';
 import { useProposals } from '../contexts/ProposalContext';
 
+const { Option } = Select;
+const antIcon = <LoadingOutlined style={{ fontSize: 24 }} spin />;
+
 const Proposals: React.FC = () => {
     const navigate = useNavigate();
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const { proposals, addProposal } = useProposals(); // Use global context
+    const { proposals, loading, addProposal } = useProposals();
 
-    const handleCreateProposal = (values: any) => {
+    const handleCreateProposal = async (values: any) => {
         const domainMap: Record<string, string> = {
             finance: 'Finance',
             hr: 'HR',
@@ -25,12 +28,16 @@ const Proposals: React.FC = () => {
             title: values.title.charAt(0).toUpperCase() + values.title.slice(1),
             domain: domainMap[values.domain] || values.domain,
             description: values.description,
-            proposer: `${domainMap[values.domain] || values.domain} Agent` // Assign a proposer
+            proposer: `${domainMap[values.domain] || values.domain} Agent`
         };
 
-        addProposal(newProposalData); // Add to global context
-        setIsModalVisible(false);
-        message.success('Proposal initiated successfully. All agents notified for deliberation.');
+        try {
+            await addProposal(newProposalData);
+            setIsModalVisible(false);
+            message.success('Proposal initiated successfully. All agents notified for deliberation.');
+        } catch (error) {
+            message.error('Failed to initiate proposal.');
+        }
     };
 
     const handlePrint = () => {
@@ -43,7 +50,13 @@ const Proposals: React.FC = () => {
     };
 
     const columns = [
-        { title: 'ID', dataIndex: 'id', key: 'id', width: 100 },
+        {
+            title: 'ID',
+            dataIndex: 'id',
+            key: 'id',
+            width: 100,
+            render: (id: string | number) => `P-${id.toString().padStart(3, '0')}`
+        },
         { title: 'Title', dataIndex: 'title', key: 'title' },
         {
             title: 'Domain',
@@ -57,7 +70,7 @@ const Proposals: React.FC = () => {
             key: 'riskTier',
             render: (r: string) => (
                 <Tag color={r === 'high' ? 'red' : r === 'medium' ? 'orange' : 'green'}>
-                    {r.toUpperCase()}
+                    {(r || 'medium').toUpperCase()}
                 </Tag>
             ),
         },
@@ -65,13 +78,13 @@ const Proposals: React.FC = () => {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
-            render: (s: string) => <Tag color="processing">{s.replace('_', ' ').toUpperCase()}</Tag>, // Capitalize status
+            render: (s: string) => <Tag color="processing">{(s || 'deliberating').replace('_', ' ').toUpperCase()}</Tag>,
         },
         {
             title: 'Confidence',
             dataIndex: 'confidence',
             key: 'confidence',
-            render: (c: number) => `${(c * 100).toFixed(0)}%`,
+            render: (c: number) => `${((c || 0) * 100).toFixed(0)}%`,
         },
         {
             title: 'Created',
@@ -89,6 +102,14 @@ const Proposals: React.FC = () => {
         },
     ];
 
+    if (loading) {
+        return (
+            <div style={{ textAlign: 'center', padding: '50px' }}>
+                <Spin indicator={antIcon} tip="Loading Proposals..." />
+            </div>
+        );
+    }
+
     return (
         <div>
             <Card
@@ -103,20 +124,12 @@ const Proposals: React.FC = () => {
                     </Space>
                 }
             >
-                <Space style={{ marginBottom: 16 }}>
-                    <Input prefix={<SearchOutlined />} placeholder="Search proposals..." style={{ width: 250 }} />
-                    <Select placeholder="Domain" style={{ width: 120 }} allowClear>
-                        <Select.Option value="hr">HR</Select.Option>
-                        <Select.Option value="finance">Finance</Select.Option>
-                        <Select.Option value="ops">Operations</Select.Option>
-                    </Select>
-                    <Select placeholder="Status" style={{ width: 120 }} allowClear>
-                        <Select.Option value="deliberating">Deliberating</Select.Option>
-                        <Select.Option value="voting">Voting</Select.Option>
-                        <Select.Option value="approved">Approved</Select.Option>
-                    </Select>
-                </Space>
-                <Table dataSource={proposals} columns={columns} rowKey="id" />
+                <Table
+                    dataSource={proposals}
+                    columns={columns}
+                    rowKey="id"
+                    pagination={{ pageSize: 10 }}
+                />
             </Card>
 
             <CreateProposalModal

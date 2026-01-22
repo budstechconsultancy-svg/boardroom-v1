@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import api from '../api/client';
 
 export interface Agent {
+    id?: number;
     name: string;
     domain: string;
     description: string;
@@ -14,49 +16,103 @@ export interface Agent {
 
 interface AgentContextType {
     agents: Agent[];
-    addAgent: (agent: Agent) => void;
-    updateAgent: (domain: string, updates: Partial<Agent>) => void;
-    toggleAgent: (domain: string) => void;
+    loading: boolean;
+    addAgent: (agent: Agent) => Promise<void>;
+    updateAgent: (domain: string, updates: Partial<Agent>) => Promise<void>;
+    toggleAgent: (domain: string) => Promise<void>;
     getAgentByDomain: (domain: string) => Agent | undefined;
+    refreshAgents: () => Promise<void>;
 }
 
 const AgentContext = createContext<AgentContextType | undefined>(undefined);
 
-const initialAgents: Agent[] = [
-    { name: 'CEO Agent', domain: 'ceo', description: 'Final authority - AI/Human/Hybrid', active: true, weight: 2.0, canExecute: true, llmModel: 'gpt-4', ragEnabled: true, knowledgeBase: 'Corporate Strategy' },
-    { name: 'HR Agent', domain: 'hr', description: 'Workforce and HR decisions', active: true, weight: 1.0, canExecute: true, llmModel: 'gpt-4', ragEnabled: false },
-    { name: 'Finance Agent', domain: 'finance', description: 'Financial decisions and controls', active: true, weight: 1.5, canExecute: true, llmModel: 'gpt-4', ragEnabled: true, knowledgeBase: 'Financial Reports' },
-    { name: 'Ops Agent', domain: 'ops', description: 'Operations and efficiency', active: true, weight: 1.0, canExecute: true, llmModel: 'gpt-4', ragEnabled: true, knowledgeBase: 'Operational Procedures' },
-    { name: 'Sales Agent', domain: 'sales', description: 'Revenue and sales decisions', active: false, weight: 1.0, canExecute: false, llmModel: 'gpt-3.5-turbo', ragEnabled: false },
-    { name: 'Legal Agent', domain: 'legal', description: 'Compliance and legal review', active: true, weight: 1.5, canExecute: false, llmModel: 'gpt-4', ragEnabled: true, knowledgeBase: 'Legal Acts & Regulations' },
-    { name: 'IT Security Agent', domain: 'it_security', description: 'Security and access control', active: true, weight: 1.0, canExecute: false, llmModel: 'gpt-4', ragEnabled: true, knowledgeBase: 'Security Protocols' },
-    { name: 'Procurement Agent', domain: 'procurement', description: 'Vendor and supply decisions', active: false, weight: 1.0, canExecute: true, llmModel: 'gpt-3.5-turbo', ragEnabled: false },
-    { name: 'Customer Success', domain: 'customer', description: 'Customer retention', active: false, weight: 1.0, canExecute: false, llmModel: 'gpt-3.5-turbo', ragEnabled: false },
-    { name: 'Product Agent', domain: 'product', description: 'Product roadmap', active: false, weight: 1.0, canExecute: false, llmModel: 'gpt-4', ragEnabled: false },
-];
+const mapDjangoToAgent = (djangoAgent: any): Agent => {
+    const config = djangoAgent.configuration || {};
+    return {
+        id: djangoAgent.id,
+        name: djangoAgent.name,
+        // Using a mapping for domain or assuming name-based domain if not provided
+        domain: djangoAgent.name.toLowerCase().replace(/\s+agent/g, '').replace(/\s+/g, '_'),
+        description: djangoAgent.role,
+        active: djangoAgent.is_active,
+        weight: djangoAgent.vote_weight,
+        canExecute: djangoAgent.can_execute,
+        llmModel: config.llmModel || 'gpt-4',
+        ragEnabled: config.ragEnabled || false,
+        knowledgeBase: config.knowledgeBase,
+    };
+};
+
+const mapAgentToDjango = (agent: Partial<Agent>): any => {
+    const djangoAgent: any = {};
+    if (agent.name) djangoAgent.name = agent.name;
+    if (agent.description) djangoAgent.role = agent.description;
+    if (agent.active !== undefined) djangoAgent.is_active = agent.active;
+    if (agent.weight !== undefined) djangoAgent.vote_weight = agent.weight;
+    if (agent.canExecute !== undefined) djangoAgent.can_execute = agent.canExecute;
+
+    djangoAgent.configuration = {
+        llmModel: agent.llmModel,
+        ragEnabled: agent.ragEnabled,
+        knowledgeBase: agent.knowledgeBase,
+    };
+    return djangoAgent;
+};
 
 export const AgentProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    // Initialize from localStorage if available, otherwise use default
-    const [agents, setAgents] = useState<Agent[]>(() => {
-        const savedAgents = localStorage.getItem('cxo_agents');
-        return savedAgents ? JSON.parse(savedAgents) : initialAgents;
-    });
+    const [agents, setAgents] = useState<Agent[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    // Save to localStorage whenever agents change
-    React.useEffect(() => {
-        localStorage.setItem('cxo_agents', JSON.stringify(agents));
-    }, [agents]);
-
-    const addAgent = (agent: Agent) => {
-        setAgents(prev => [...prev, agent]);
+    const refreshAgents = async () => {
+        try {
+            setLoading(true);
+            const response = await api.get('/agents/');
+            const mappedAgents = response.data.map(mapDjangoToAgent);
+            setAgents(mappedAgents);
+        } catch (error) {
+            console.error('Failed to fetch agents:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const updateAgent = (domain: string, updates: Partial<Agent>) => {
-        setAgents(prev => prev.map(a => a.domain === domain ? { ...a, ...updates } : a));
+    useEffect(() => {
+        refreshAgents();
+    }, []);
+
+    const addAgent = async (agent: Agent) => {
+        try {
+            const djangoData = mapAgentToDjango(agent);
+            const response = await api.post('/agents/', djangoData);
+            setAgents(prev => [...prev, mapDjangoToAgent(response.data)]);
+        } catch (error) {
+            console.error('Failed to add agent:', error);
+        }
     };
 
-    const toggleAgent = (domain: string) => {
-        setAgents(prev => prev.map(a => a.domain === domain ? { ...a, active: !a.active } : a));
+    const updateAgent = async (domain: string, updates: Partial<Agent>) => {
+        const agent = agents.find(a => a.domain === domain);
+        if (!agent || !agent.id) return;
+
+        try {
+            const djangoData = mapAgentToDjango({ ...agent, ...updates });
+            const response = await api.patch(`/agents/${agent.id}/`, djangoData);
+            setAgents(prev => prev.map(a => a.domain === domain ? mapDjangoToAgent(response.data) : a));
+        } catch (error) {
+            console.error('Failed to update agent:', error);
+        }
+    };
+
+    const toggleAgent = async (domain: string) => {
+        const agent = agents.find(a => a.domain === domain);
+        if (!agent || !agent.id) return;
+
+        try {
+            const response = await api.patch(`/agents/${agent.id}/`, { is_active: !agent.active });
+            setAgents(prev => prev.map(a => a.domain === domain ? mapDjangoToAgent(response.data) : a));
+        } catch (error) {
+            console.error('Failed to toggle agent:', error);
+        }
     };
 
     const getAgentByDomain = (domain: string) => {
@@ -64,7 +120,7 @@ export const AgentProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     };
 
     return (
-        <AgentContext.Provider value={{ agents, addAgent, updateAgent, toggleAgent, getAgentByDomain }}>
+        <AgentContext.Provider value={{ agents, loading, addAgent, updateAgent, toggleAgent, getAgentByDomain, refreshAgents }}>
             {children}
         </AgentContext.Provider>
     );

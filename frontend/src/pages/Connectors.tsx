@@ -1,44 +1,38 @@
 import React, { useState } from 'react';
-import { Card, Table, Tag, Button, Space, Modal, Form, Input, Select, message } from 'antd';
-import { PlusOutlined, SyncOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { Card, Table, Tag, Button, Space, Modal, Form, Input, Select, message, Spin } from 'antd';
+import { PlusOutlined, SyncOutlined, CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined } from '@ant-design/icons';
+import { useConnectors, Connector } from '../contexts/ConnectorContext';
 
 const { Option } = Select;
-
-const initialConnectors = [
-    { id: 'c-1', name: 'Tally Prime', type: 'Tally', status: 'connected', lastSync: '5 min ago', rowsImported: 1250, apiKey: '', endpoint: '' },
-    { id: 'c-2', name: 'Zoho Books', type: 'Zoho', status: 'connected', lastSync: '1 hour ago', rowsImported: 850, apiKey: '', endpoint: '' },
-    { id: 'c-3', name: 'SAP B1', type: 'SAP', status: 'disconnected', lastSync: 'Never', rowsImported: 0, apiKey: '', endpoint: '' },
-];
+const antIcon = <LoadingOutlined style={{ fontSize: 24 }} spin />;
 
 const Connectors: React.FC = () => {
-    const [connectors, setConnectors] = useState(initialConnectors);
+    const { connectors, loading, addConnector, updateConnector, syncConnector } = useConnectors();
     const [isAddModalVisible, setIsAddModalVisible] = useState(false);
     const [isConfigureModalVisible, setIsConfigureModalVisible] = useState(false);
-    const [selectedConnector, setSelectedConnector] = useState<any>(null);
+    const [selectedConnector, setSelectedConnector] = useState<Connector | null>(null);
     const [addForm] = Form.useForm();
     const [configureForm] = Form.useForm();
 
-    const handleSync = (connector: any) => {
-        message.loading({ content: `Syncing ${connector.name}...`, key: 'sync' });
-
-        // Simulate sync operation
-        setTimeout(() => {
-            setConnectors(connectors.map(c =>
-                c.id === connector.id
-                    ? { ...c, lastSync: 'Just now', status: 'connected' }
-                    : c
-            ));
-            message.success({ content: `${connector.name} synced successfully!`, key: 'sync' });
-        }, 2000);
+    const handleSync = async (connector: Connector) => {
+        const hide = message.loading(`Syncing ${connector.name}...`, 0);
+        try {
+            await syncConnector(connector.id);
+            message.success(`${connector.name} synced successfully!`);
+        } catch (error) {
+            message.error(`Failed to sync ${connector.name}`);
+        } finally {
+            hide();
+        }
     };
 
-    const showConfigureModal = (connector: any) => {
+    const showConfigureModal = (connector: Connector) => {
         setSelectedConnector(connector);
         configureForm.setFieldsValue({
             name: connector.name,
             type: connector.type,
-            apiKey: connector.apiKey || '',
-            endpoint: connector.endpoint || ''
+            apiKey: connector.config.apiKey || '',
+            endpoint: connector.config.endpoint || ''
         });
         setIsConfigureModalVisible(true);
     };
@@ -48,20 +42,20 @@ const Connectors: React.FC = () => {
     };
 
     const handleAddConnector = () => {
-        addForm.validateFields().then(values => {
-            const newConnector = {
-                id: `c-${Date.now()}`,
+        addForm.validateFields().then(async values => {
+            const newConnector: Partial<Connector> = {
                 name: values.name,
                 type: values.type,
                 status: 'disconnected',
-                lastSync: 'Never',
-                rowsImported: 0,
-                apiKey: values.apiKey || '',
-                endpoint: values.endpoint || ''
+                config: {
+                    apiKey: values.apiKey || '',
+                    endpoint: values.endpoint || '',
+                    rowsImported: 0
+                }
             };
 
-            setConnectors([...connectors, newConnector]);
-            message.success(`${newConnector.name} connector added successfully!`);
+            await addConnector(newConnector);
+            message.success(`${values.name} connector added successfully!`);
             setIsAddModalVisible(false);
             addForm.resetFields();
         }).catch(info => {
@@ -70,22 +64,22 @@ const Connectors: React.FC = () => {
     };
 
     const handleConfigureConnector = () => {
-        configureForm.validateFields().then(values => {
-            setConnectors(connectors.map(c =>
-                c.id === selectedConnector.id
-                    ? {
-                        ...c,
-                        name: values.name,
-                        type: values.type,
+        configureForm.validateFields().then(async values => {
+            if (selectedConnector) {
+                await updateConnector(selectedConnector.id, {
+                    name: values.name,
+                    type: values.type,
+                    config: {
+                        ...selectedConnector.config,
                         apiKey: values.apiKey,
                         endpoint: values.endpoint
                     }
-                    : c
-            ));
-            message.success(`${values.name} updated successfully!`);
-            setIsConfigureModalVisible(false);
-            setSelectedConnector(null);
-            configureForm.resetFields();
+                });
+                message.success(`${values.name} updated successfully!`);
+                setIsConfigureModalVisible(false);
+                setSelectedConnector(null);
+                configureForm.resetFields();
+            }
         }).catch(info => {
             console.log('Validate Failed:', info);
         });
@@ -120,7 +114,7 @@ const Connectors: React.FC = () => {
         {
             title: 'Actions',
             key: 'actions',
-            render: (_: any, record: any) => (
+            render: (_: any, record: Connector) => (
                 <Space>
                     <Button size="small" icon={<SyncOutlined />} onClick={() => handleSync(record)}>Sync</Button>
                     <Button size="small" onClick={() => showConfigureModal(record)}>Configure</Button>
@@ -128,6 +122,14 @@ const Connectors: React.FC = () => {
             ),
         },
     ];
+
+    if (loading) {
+        return (
+            <div style={{ textAlign: 'center', padding: '50px' }}>
+                <Spin indicator={antIcon} tip="Loading Connectors..." />
+            </div>
+        );
+    }
 
     return (
         <>

@@ -11,11 +11,22 @@ import {
 } from '@ant-design/icons';
 
 import { useProposals } from '../contexts/ProposalContext';
+import { Spin } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
+const antIcon = <LoadingOutlined style={{ fontSize: 24 }} spin />;
 
 const Dashboard: React.FC = () => {
-    const { proposals } = useProposals();
+    const { proposals, loading } = useProposals();
+
+    if (loading && proposals.length === 0) {
+        return (
+            <div style={{ textAlign: 'center', padding: '50px' }}>
+                <Spin indicator={antIcon} tip="Loading Dashboard..." />
+            </div>
+        );
+    }
 
     // Calculate KPI data dynamically
     // Active = Currently in deliberation (Agents are working)
@@ -40,7 +51,12 @@ const Dashboard: React.FC = () => {
     const recentProposals = [...proposals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
 
     const columns = [
-        { title: 'ID', dataIndex: 'id', key: 'id' },
+        {
+            title: 'ID',
+            dataIndex: 'id',
+            key: 'id',
+            render: (id: string | number) => `P-${id.toString().padStart(3, '0')}`
+        },
         { title: 'Title', dataIndex: 'title', key: 'title' },
         {
             title: 'Domain',

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Card, Row, Col, Avatar, Tag, Typography, Switch, Button, InputNumber, message, Modal, Input, Select, Form, Divider, Alert } from 'antd';
-import { RobotOutlined, SettingOutlined, SaveOutlined, PlusOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Avatar, Tag, Typography, Switch, Button, InputNumber, message, Modal, Input, Select, Form, Divider, Alert, Spin } from 'antd';
+import { RobotOutlined, SettingOutlined, SaveOutlined, PlusOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useAgents } from '../contexts/AgentContext';
 
 const { Title, Text } = Typography;
@@ -12,8 +12,10 @@ const colorMap: Record<string, string> = {
     customer: '#2f54eb', product: '#a0d911',
 };
 
+const antIcon = <LoadingOutlined style={{ fontSize: 24 }} spin />;
+
 const Agents: React.FC = () => {
-    const { agents, addAgent, updateAgent, toggleAgent } = useAgents();
+    const { agents, loading, addAgent, updateAgent, toggleAgent, refreshAgents } = useAgents();
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
     const [isConfigureModalVisible, setIsConfigureModalVisible] = useState(false);
     const [selectedAgent, setSelectedAgent] = useState<any>(null);
@@ -33,9 +35,9 @@ const Agents: React.FC = () => {
     };
 
     const handleSaveAll = () => {
-        // In production, this would call an API to save agent configurations
-        console.log('Saving agent configurations:', agents);
-        message.success('Agent configurations saved globally!');
+        refreshAgents().then(() => {
+            message.success('Agent configurations synced with backend!');
+        });
     };
 
     const showCreateModal = () => {
@@ -57,7 +59,7 @@ const Agents: React.FC = () => {
     };
 
     const handleCreateAgent = () => {
-        createForm.validateFields().then(values => {
+        createForm.validateFields().then(async values => {
             const newAgent = {
                 name: values.name,
                 domain: values.domain.toLowerCase().replace(/\s+/g, '_'),
@@ -69,7 +71,7 @@ const Agents: React.FC = () => {
                 ragEnabled: false
             };
 
-            addAgent(newAgent);
+            await addAgent(newAgent);
             message.success(`${newAgent.name} created successfully!`);
             setIsCreateModalVisible(false);
             createForm.resetFields();
@@ -79,9 +81,9 @@ const Agents: React.FC = () => {
     };
 
     const handleConfigureAgent = () => {
-        configureForm.validateFields().then(values => {
+        configureForm.validateFields().then(async values => {
             if (selectedAgent) {
-                updateAgent(selectedAgent.domain, {
+                await updateAgent(selectedAgent.domain, {
                     name: values.name,
                     description: values.description,
                     weight: values.weight,
@@ -110,6 +112,14 @@ const Agents: React.FC = () => {
         setSelectedAgent(null);
         configureForm.resetFields();
     };
+
+    if (loading) {
+        return (
+            <div style={{ textAlign: 'center', padding: '50px' }}>
+                <Spin indicator={antIcon} tip="Loading Agents..." />
+            </div>
+        );
+    }
 
     return (
         <div>

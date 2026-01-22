@@ -1,6 +1,7 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { useNotifications } from './NotificationContext';
 import { useAgents } from './AgentContext';
+import apiClient from '../api/client';
 
 // Types
 export interface Proposal {
@@ -8,7 +9,7 @@ export interface Proposal {
     title: string;
     domain: string;
     description: string;
-    status: 'deliberating' | 'voting' | 'approved' | 'rejected' | 'pending_ceo';
+    status: 'deliberating' | 'voting' | 'approved' | 'rejected' | 'pending_ceo' | 'executed';
     riskTier: 'low' | 'medium' | 'high';
     confidence: number;
     createdAt: string;
@@ -17,10 +18,13 @@ export interface Proposal {
 }
 
 export interface Conversation {
+    id?: string;
     agent: string;
     domain: string;
     message: string;
     timestamp: string;
+    roundNumber: number;
+    isConclusion: boolean;
     isChallenge?: boolean;
     isResponse?: boolean;
     evidence?: string;
@@ -33,498 +37,287 @@ export interface Round {
     conclusion?: string;
 }
 
-interface ProposalContextType {
+export interface ProposalContextType {
     proposals: Proposal[];
+    loading: boolean;
+    delibs_ready: boolean;
     deliberations: Record<string, Round[]>;
     votes: Record<string, any[]>;
-    addProposal: (proposal: Omit<Proposal, 'id' | 'createdAt' | 'status' | 'riskTier' | 'confidence'>) => void;
-    updateProposalStatus: (id: string, status: Proposal['status']) => void;
+    refreshProposals: () => Promise<void>;
+    addProposal: (proposal: Omit<Proposal, 'id' | 'createdAt' | 'status' | 'riskTier' | 'confidence'>) => Promise<void>;
+    updateProposalStatus: (id: string, status: Proposal['status']) => Promise<void>;
     getDeliberation: (id: string) => Round[];
-    generateDeliberation: (proposal: Proposal) => void;
-    addInfoRequest: (proposalId: string, query: string) => void;
+    generateDeliberation: (proposal: Proposal) => Promise<void>;
+    addInfoRequest: (proposalId: string, query: string) => Promise<void>;
 }
 
 const ProposalContext = createContext<ProposalContextType | undefined>(undefined);
 
+// Mapping Functions
+const mapDjangoToProposal = (djangoData: any): Proposal => ({
+    id: djangoData.id.toString(),
+    title: djangoData.title,
+    domain: djangoData.domain || '',
+    description: djangoData.description,
+    status: djangoData.status as Proposal['status'],
+    riskTier: djangoData.risk_tier as Proposal['riskTier'],
+    confidence: djangoData.confidence,
+    createdAt: djangoData.created_at ? new Date(djangoData.created_at).toISOString().split('T')[0] : '',
+    proposer: djangoData.proposer,
+    impactSummary: djangoData.impact_summary,
+});
+
+const mapProposalToDjango = (proposal: Partial<Proposal>): any => {
+    const djangoData: any = {};
+    if (proposal.title) djangoData.title = proposal.title;
+    if (proposal.domain) djangoData.domain = proposal.domain;
+    if (proposal.description) djangoData.description = proposal.description;
+    if (proposal.status) djangoData.status = proposal.status;
+    if (proposal.riskTier) djangoData.risk_tier = proposal.riskTier;
+    if (proposal.confidence !== undefined) djangoData.confidence = proposal.confidence;
+    if (proposal.proposer) djangoData.proposer = proposal.proposer;
+    if (proposal.impactSummary) djangoData.impact_summary = proposal.impactSummary;
+    return djangoData;
+};
+
+const mapDjangoToConversation = (djangoData: any): Conversation => ({
+    id: djangoData.id.toString(),
+    agent: djangoData.agent_name,
+    domain: djangoData.agent_domain,
+    message: djangoData.message,
+    timestamp: new Date(djangoData.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    roundNumber: djangoData.round_number || 1,
+    isConclusion: djangoData.is_conclusion || false,
+    isChallenge: djangoData.metadata?.isChallenge,
+    isResponse: djangoData.metadata?.isResponse,
+    evidence: djangoData.metadata?.evidence,
+});
+
 export const ProposalProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    // Initial Mock Data
-    // Initialize from localStorage
-    const [proposals, setProposals] = useState<Proposal[]>(() => {
-        const saved = localStorage.getItem('cxo_proposals');
-        return saved ? JSON.parse(saved) : [
-            { id: 'P-001', title: 'Q1 Budget Reallocation', domain: 'Finance', description: 'Proposal to reallocate $50,000 from unused training budget to marketing initiatives for Q1 campaign.', status: 'approved', riskTier: 'medium', confidence: 0.92, createdAt: '2024-01-15', proposer: 'Finance Agent' },
-            { id: 'P-002', title: 'New Hire: Senior Developer', domain: 'HR', description: 'Request for headcount increase to hire a Senior Full-stack Developer to accelerate product roadmap execution.', status: 'voting', riskTier: 'low', confidence: 0.85, createdAt: '2024-01-16', proposer: 'HR Agent' },
-            { id: 'P-003', title: 'Inventory Optimization', domain: 'Ops', description: 'Implementation of AI-driven inventory management system to reduce holding costs by 12%.', status: 'deliberating', riskTier: 'medium', confidence: 0.78, createdAt: '2024-01-17', proposer: 'Ops Agent' },
-            { id: 'P-004', title: 'Major Vendor Contract', domain: 'Procurement', description: 'Renewal of cloud infrastructure contract with a 3-year commitment for a 15% discount.', status: 'pending_ceo', riskTier: 'high', confidence: 0.65, createdAt: '2024-01-18', proposer: 'Procurement Agent' },
-        ];
-    });
-
-    const [deliberations, setDeliberations] = useState<Record<string, Round[]>>(() => {
-        const saved = localStorage.getItem('cxo_deliberations');
-        return saved ? JSON.parse(saved) : {};
-    });
-
-    const [votes, setVotes] = useState<Record<string, any[]>>(() => {
-        const saved = localStorage.getItem('cxo_votes');
-        return saved ? JSON.parse(saved) : {};
-    });
-
-    // Save to localStorage
-    React.useEffect(() => {
-        localStorage.setItem('cxo_proposals', JSON.stringify(proposals));
-        localStorage.setItem('cxo_deliberations', JSON.stringify(deliberations));
-        localStorage.setItem('cxo_votes', JSON.stringify(votes));
-    }, [proposals, deliberations, votes]);
+    const [proposals, setProposals] = useState<Proposal[]>([]);
+    const [deliberations, setDeliberations] = useState<Record<string, Round[]>>({});
+    const [votes, setVotes] = useState<Record<string, any[]>>({});
+    const [loading, setLoading] = useState(true);
+    const [delibs_ready, setDelibsReady] = useState(false);
 
     const { addNotification } = useNotifications();
     const { agents } = useAgents();
 
-    const addProposal = (newProposalData: Omit<Proposal, 'id' | 'createdAt' | 'status' | 'riskTier' | 'confidence'>) => {
-        const newProposal: Proposal = {
-            ...newProposalData,
-            id: `P-00${proposals.length + 1}`,
-            status: 'deliberating',
-            riskTier: 'medium', // Default
-            confidence: 0.75,   // Default
-            createdAt: new Date().toISOString().split('T')[0],
-            proposer: `${newProposalData.domain} Agent`
-        };
-        setProposals(prev => [newProposal, ...prev]);
-        generateDeliberation(newProposal);
+    const refreshProposals = async () => {
+        setLoading(true);
+        try {
+            const response = await apiClient.get('/proposals/');
+            const mappedProposals = response.data.map(mapDjangoToProposal);
+            setProposals(mappedProposals);
 
-        // Trigger Notification
-        addNotification({
-            type: 'proposal',
-            title: 'New Proposal Submitted',
-            message: `Proposal "${newProposal.title}" has been submitted by ${newProposal.proposer || 'CXO Agent'} for deliberation.`
-        });
-    };
+            // Fetch deliberations for each proposal
+            const delibs: Record<string, Round[]> = {};
+            for (const p of mappedProposals) {
+                const msgsResponse = await apiClient.get(`/proposals/${p.id}/`);
+                if (msgsResponse.data.messages && msgsResponse.data.messages.length > 0) {
+                    const convs = msgsResponse.data.messages.map(mapDjangoToConversation);
 
-    const updateProposalStatus = (id: string, status: Proposal['status']) => {
-        setProposals(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+                    // Group into rounds
+                    const groupedRounds: Record<number, Round> = {};
+                    convs.forEach((c: Conversation) => {
+                        if (!groupedRounds[c.roundNumber]) {
+                            groupedRounds[c.roundNumber] = {
+                                round: c.roundNumber,
+                                phase: `Phase ${c.roundNumber}: ${getPhaseName(c.roundNumber)}`,
+                                conversations: []
+                            };
+                        }
+                        if (c.isConclusion) {
+                            groupedRounds[c.roundNumber].conclusion = c.message;
+                        } else {
+                            groupedRounds[c.roundNumber].conversations.push(c);
+                        }
+                    });
 
-        const proposal = proposals.find(p => p.id === id);
-        if (proposal) {
-            let notificationTitle = '';
-            let notificationMsg = '';
-
-            if (status === 'voting') {
-                notificationTitle = 'Deliberation Complete';
-                notificationMsg = `Deliberation concluded for "${proposal.title}". Voting session has started.`;
-            } else if (status === 'approved') {
-                notificationTitle = 'Proposal Verified & Approved';
-                notificationMsg = `Proposal "${proposal.title}" has been approved by the council. Execution sequence initiated.`;
-            } else if (status === 'rejected') {
-                notificationTitle = 'Proposal Rejected';
-                notificationMsg = `Proposal "${proposal.title}" was rejected by the council.`;
+                    delibs[p.id] = Object.values(groupedRounds).sort((a, b) => a.round - b.round);
+                }
             }
-
-            if (notificationTitle) {
-                addNotification({
-                    type: 'decision', // Using decision type for status updates
-                    title: notificationTitle,
-                    message: notificationMsg
-                });
-            }
+            setDeliberations(delibs);
+            setDelibsReady(true);
+        } catch (error) {
+            console.error('Error fetching proposals:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const generateDeliberation = (proposal: Proposal) => {
-        if (deliberations[proposal.id]) return;
+    const getPhaseName = (round: number) => {
+        const phases = ['Initial Review', 'Impact Assessment', 'Risk Evaluation', 'Counter-Argument', 'Final Consensus'];
+        return phases[round - 1] || 'Council Deliberation';
+    };
 
+    useEffect(() => {
+        refreshProposals();
+    }, []);
+
+    const addProposal = async (newProposalData: Omit<Proposal, 'id' | 'createdAt' | 'status' | 'riskTier' | 'confidence'>) => {
+        try {
+            const djangoData = mapProposalToDjango({
+                ...newProposalData,
+                status: 'deliberating',
+                riskTier: 'medium',
+                confidence: 0.75,
+                proposer: `${newProposalData.domain} Agent`
+            });
+            const response = await apiClient.post('/proposals/', djangoData);
+            const newProposal = mapDjangoToProposal(response.data);
+
+            setProposals(prev => [newProposal, ...prev]);
+
+            // Start generation in background to be "quick" for the user redirect
+            generateDeliberation(newProposal);
+
+            addNotification({
+                type: 'proposal',
+                title: 'New Proposal Submitted',
+                message: `Proposal "${newProposal.title}" has been submitted by ${newProposal.proposer || 'CXO Agent'} for multi-round deliberation.`
+            });
+        } catch (error) {
+            console.error('Error adding proposal:', error);
+            throw error;
+        }
+    };
+
+    const updateProposalStatus = async (id: string, status: Proposal['status']) => {
+        try {
+            await apiClient.patch(`/proposals/${id}/`, { status });
+            setProposals(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+        } catch (error) {
+            console.error('Error updating status:', error);
+            throw error;
+        }
+    };
+
+    const generateDeliberation = async (proposal: Proposal) => {
         const activeParticipants = agents.filter(a => a.active && a.domain !== 'ceo');
         const participants = activeParticipants.length > 0 ? activeParticipants : [
-            { name: 'Finance Agent', domain: 'Finance' },
-            { name: 'HR Agent', domain: 'HR' }
+            { name: 'Finance Agent', domain: 'finance' },
+            { name: 'HR Agent', domain: 'hr' },
+            { name: 'Ops Agent', domain: 'ops' },
+            { name: 'Security Agent', domain: 'security' }
         ];
 
-        // 1. Assign Stances (Support: 60%, Oppose: 20%, Abstain: 20%)
-        const stances: Record<string, 'approve' | 'reject' | 'abstain'> = {};
-        participants.forEach(p => {
-            const r = Math.random();
-            stances[p.domain] = r > 0.4 ? 'approve' : (r > 0.2 ? 'reject' : 'abstain');
-        });
+        const roundsCount = 5;
+        const messagesToSave: any[] = [];
 
-        // Conversational Templates
-        const templates: Record<string, any> = {
-            finance: {
-                initial: [
-                    `I've reviewed the numbers for "${proposal.title}". The ROI looks promising, but we need to be careful with cash flow.`,
-                    `From a financial perspective, "${proposal.title}" fits our Q3 goals, though the upfront cost is higher than I'd like.`,
-                    `I'm analyzing the budget impact of "${proposal.title}". It's a significant investment, so we need to ensure the returns are there.`
-                ],
-                challenge: [
-                    `I'm concerned about the hidden costs here. Have we accounted for maintenance?`,
-                    `The budget buffer seems too thin. What if we overrun?`
-                ],
-                agreement: [
-                    `That's a fair point. If the revenue projections hold, the cost is justified.`,
-                    `I agree. The long-term savings outweigh the immediate expense.`
-                ],
-                suggestion: [
-                    `Suggestion: We should phase the investment over two quarters to reduce risk.`,
-                    `I recommend we set strict spending caps on this initiative.`
-                ],
-                dissent: [
-                    `I cannot support this at the current price point. It pushes us into the red.`,
-                    `The risks outweigh the rewards here. I recommend we request a revised budget.`,
-                    `Disagreed. This allocation is better spent elsewhere.`
-                ]
-            },
-            hr: {
-                initial: [
-                    `I'm looking at "${proposal.title}" from a talent perspective. It could really boost team morale.`,
-                    `Reviewing "${proposal.title}" for cultural fit. We need to make sure our people are ready for this change.`,
-                    `From an HR standpoint, "${proposal.title}" is interesting. It addresses some key employee feedback.`
-                ],
-                challenge: [
-                    `I'm worried about the training burden on the team. Do we have the bandwidth?`,
-                    `This might cause some friction if not communicated well.`
-                ],
-                agreement: [
-                    `You're right. Change management will be critical here.`,
-                    `I agree. If we support the team properly, this will be a big win.`
-                ],
-                suggestion: [
-                    `Suggestion: Let's roll this out to a pilot group first to gauge reaction.`,
-                    `I suggest we bundle this with a training workshop.`
-                ],
-                dissent: [
-                    `I don't think the team is ready for this change. It will cause burnout.`,
-                    `This proposal ignores our current hiring freeze constraints.`,
-                    `I have to oppose. The cultural impact is too negative.`
-                ]
-            },
-            ops: {
-                initial: [
-                    `Checking the operational feasibility of "${proposal.title}". It looks scalable, which is good.`,
-                    `From an Ops view, "${proposal.title}" could streamline our workflows significantly.`,
-                    `I'm assessing the implementation checks for "${proposal.title}". Efficiency is the name of the game.`
-                ],
-                challenge: [
-                    `The integration timeline looks too aggressive. Things always take longer.`,
-                    `I'm concerned about the load on our current infrastructure.`
-                ],
-                agreement: [
-                    `Valid concern. We can pad the schedule to be safe.`,
-                    `Agreed. Reliability has to be our top priority.`
-                ],
-                suggestion: [
-                    `Suggestion: We should automate the reporting for this to save time.`,
-                    `I recommend a phased rollout to minimize downtime.`
-                ],
-                dissent: [
-                    `This is operational suicide. We don't have the redundancy for this.`,
-                    `The complexity here is too high. I vote no until we simplify.`,
-                    `Opposed. This breaks our current SLA commitments.`
-                ]
-            },
-            legal: {
-                initial: [
-                    `I've scanned "${proposal.title}" for compliance risks. It seems mostly standard, but there are a few clauses to watch.`,
-                    `From Legal: "${proposal.title}" needs a tight contract to protect our IP.`,
-                    `Reviewing the regulatory implications of "${proposal.title}". We play by the rules.`
-                ],
-                challenge: [
-                    `Are we sure we're covered on the data privacy front here?`,
-                    `This exposes us to some liability if the vendor fails.`
-                ],
-                agreement: [
-                    `Good point. We can add an indemnity clause to handle that.`,
-                    `I agree. Better safe than sorry.`
-                ],
-                suggestion: [
-                    `Suggestion: Let's have external counsel review the final terms.`,
-                    `I suggest a mandatory compliance check before go-live.`
-                ],
-                dissent: [
-                    `This is a compliance nightmare. I cannot sign off on this.`,
-                    `Too much regulatory risk. We need to pause and reassess.`,
-                    `Opposed due to potential GDPR violations.`
-                ]
-            },
-            sales: {
-                initial: [
-                    `I love "${proposal.title}". This is exactly what our customers have been asking for!`,
-                    `From a Sales perspective, "${proposal.title}" could really help us close the Q4 gap.`,
-                    `Evaluating the market potential of "${proposal.title}". It's a competitive differentiator.`
-                ],
-                challenge: [
-                    `I'm not sure if the market is ready for this price point.`,
-                    `Will this distract us from our core product offerings?`
-                ],
-                agreement: [
-                    `That's true, but the upsell potential is huge.`,
-                    `I agree, we need to focus on the value proposition.`
-                ],
-                suggestion: [
-                    `Suggestion: Let's create a bundle offer for early adopters.`,
-                    `I recommend we get some customer testimonials during the beta.`
-                ],
-                dissent: [
-                    `Our customers won't pay for this. It's a waste of resources.`,
-                    `This cannibalizes our existing premium tier. I'm voting no.`,
-                    `Opposed. The market timing is all wrong.`
-                ]
-            },
-            security: {
-                initial: [
-                    `I'm running a security assessment on "${proposal.title}". Data integrity is non-negotiable.`,
-                    `From Security: "${proposal.title}" introduces some new attack vectors we need to secure.`,
-                    `Reviewing the access controls for "${proposal.title}". We need to stay zero-trust.`
-                ],
-                challenge: [
-                    `This third-party integration makes me nervous about data leaks.`,
-                    `We haven't defined the encryption standards for this yet.`
-                ],
-                agreement: [
-                    `Fair. We can enforce end-to-end encryption to mitigate that.`,
-                    `I agree. Security by design is the only way.`
-                ],
-                suggestion: [
-                    `Suggestion: Let's require MFA for all admin evaluations of this.`,
-                    `I suggest a penetration test before we go live.`
-                ],
-                dissent: [
-                    `Critical vulnerability identified. I'm blocking this immediately.`,
-                    `We fail compliance usage standards with this tool. Opposed.`,
-                    `Too risky. We can't secure this properly.`
-                ]
-            },
-            procurement: {
-                initial: [
-                    `I'm looking at the vendor options for "${proposal.title}". We can probably negotiate a better rate.`,
-                    `From Procurement: "${proposal.title}" aligns with our strategic sourcing goals.`,
-                    `Analyzing the supply chain impact of "${proposal.title}". We need reliable partners.`
-                ],
-                challenge: [
-                    `This vendor has a history of delays. Can we trust them?`,
-                    `The contract terms are a bit rigid on cancellation.`
-                ],
-                agreement: [
-                    `True. We should have a backup vendor lined up just in case.`,
-                    `I agree. We need flexibility in the SLA.`
-                ],
-                suggestion: [
-                    `Suggestion: Let's push for a net-60 payment term.`,
-                    `I suggest we consolidate this with our existing cloud contract.`
-                ],
-                dissent: [
-                    `Vendor failed our due diligence. I cannot approve.`,
-                    `The pricing is 20% above market rate. Rejected.`,
-                    `Opposed. We have better options in our approved supplier list.`
-                ]
-            },
-            product: {
-                initial: [
-                    `I'm excited about "${proposal.title}". It adds real value to our user journey.`,
-                    `From Product: "${proposal.title}" fills a major gap in our roadmap.`,
-                    `Reviewing the UX implications of "${proposal.title}". It needs to be intuitive.`
-                ],
-                challenge: [
-                    `Is this feature creep? We need to stay focused.`,
-                    `I'm worried this will clutter the interface.`
-                ],
-                agreement: [
-                    `You're right. We should keep the MVP simple.`,
-                    `I agree. Usability testing will be crucial.`
-                ],
-                suggestion: [
-                    `Suggestion: Let's A/B test the placement of this feature.`,
-                    `I recommend we interview five key customers before building.`
-                ],
-                dissent: [
-                    `This doesn't solve a real user problem. Opposed.`,
-                    `It adds too much friction to the signup flow. I vote no.`,
-                    `Rejected. It diverts focus from our Q1 OKRs.`
-                ]
-            }
-        };
-
-        const fallback = {
-            initial: [`I'm analyzing "${proposal.title}" against our strategic objectives.`],
-            challenge: [`I have some reservations about the scope.`],
-            agreement: [`That makes sense. I see the value.`],
-            suggestion: [`Suggestion: Let's proceed with caution.`],
-            dissent: [`I have significant concerns and cannot support this.`]
-        };
-
-        const getMsg = (domain: string, type: 'initial' | 'challenge' | 'agreement' | 'suggestion' | 'dissent') => {
-            const key = domain.toLowerCase();
-            const set = templates[key] || fallback;
-            const options = set[type] || fallback[type] || fallback['agreement'];
-            return options[Math.floor(Math.random() * options.length)];
-        };
-
-        const generatedRounds: Round[] = [
-            {
-                round: 1,
-                phase: 'Initial Analysis',
-                conversations: participants.map((agent, index) => {
-                    const stance = stances[agent.domain];
-                    return {
-                        agent: agent.name,
-                        domain: agent.domain,
-                        message: getMsg(agent.domain, 'initial'),
-                        timestamp: `10:0${index} AM`
-                    };
-                })
-            },
-            {
-                round: 2,
-                phase: 'Challenge & Discussion',
-                conversations: participants.map((agent, index) => {
-                    const stance = stances[agent.domain];
-                    const isChallenge = index % 2 === 0;
-
-                    let text = "";
-                    let evidence = undefined;
-                    if (stance === 'reject') {
-                        text = getMsg(agent.domain, 'dissent');
-                        if (Math.random() > 0.6) evidence = "Compliance Violation Report #402";
-                    } else if (stance === 'abstain') {
-                        text = "I am currently neutral on this topic. I need to see more data before committing.";
-                    } else {
-                        const msgType = isChallenge ? 'challenge' : 'agreement';
-                        text = getMsg(agent.domain, msgType);
-                        if (Math.random() > 0.5) text += " " + getMsg(agent.domain, 'suggestion');
-                        if (Math.random() > 0.7) evidence = "Q3 Performance Metrics";
-                    }
-
-                    return {
-                        agent: agent.name,
-                        domain: agent.domain,
-                        message: text,
-                        timestamp: `10:1${index} AM`,
-                        isChallenge: isChallenge,
-                        isResponse: !isChallenge,
-                        evidence: evidence
-                    };
-                })
-            },
-            {
-                round: 3,
-                phase: 'Risk Mitigation',
-                conversations: participants.map((agent, index) => {
-                    return {
-                        agent: agent.name,
-                        domain: agent.domain,
-                        message: `Addressing the concerns raised in Round 2. From ${agent.domain} view, we can mitigate risks by implementing stricter controls.`,
-                        timestamp: `10:2${index} AM`,
-                        evidence: Math.random() > 0.5 ? "Risk Mitigation Plan v1.0" : undefined
-                    };
-                })
-            },
-            {
-                round: 4,
-                phase: 'Cross-functional Alignment',
-                conversations: participants.map((agent, index) => {
-                    return {
-                        agent: agent.name,
-                        domain: agent.domain,
-                        message: `We are seeing alignment across departments now. The proposed changes match our ${agent.domain} strategic goals for the next fiscal year.`,
-                        timestamp: `10:3${index} AM`
-                    };
-                })
-            },
-            {
-                round: 5,
-                phase: 'Final Synthesis',
-                conversations: participants.map((agent, index) => {
-                    const stance = stances[agent.domain];
-                    let text = "";
-
-                    if (stance === 'approve') {
-                        text = `After 5 rounds of deliberation, I support moving forward. ${getMsg(agent.domain, 'agreement')}`;
-                    } else if (stance === 'reject') {
-                        text = `My concerns remain unaddressed. I am voting against this proposal.`;
-                    } else {
-                        text = `I do not have enough conviction to block or support. I will abstain.`;
-                    }
-
-                    return {
-                        agent: agent.name,
-                        domain: agent.domain,
-                        message: text,
-                        timestamp: `10:4${index} AM`,
-                        evidence: Math.random() > 0.8 ? "Final Sign-off Document" : undefined
-                    };
-                }),
-                conclusion: `After 5 rounds, the agents have reached a conclusion. Vote casting initiated.`
-            }
-        ];
-
-        setDeliberations(prev => ({ ...prev, [proposal.id]: generatedRounds }));
-        generateVotes(proposal.id, agents, stances);
-    };
-
-    const generateVotes = (proposalId: string, currentAgents: any[], stances: Record<string, 'approve' | 'reject' | 'abstain'>) => {
-        const generatedVotes = currentAgents.map(a => {
-            const stance = stances[a.domain] || 'abstain';
-            let rationale = "";
-            switch (stance) {
-                case 'approve': rationale = `Approved based on positive impact to ${a.domain} metrics.`; break;
-                case 'reject': rationale = `Rejected due to excessive risk/cost in ${a.domain} area.`; break;
-                case 'abstain': rationale = `Abstained due to lack of domain overlap or insufficient data.`; break;
-            }
-
-            return {
-                agent: a.name,
-                domain: a.domain,
-                vote: stance,
-                rationale: rationale,
-                confidence: 0.6 + (Math.random() * 0.35)
-            };
-        });
-        setVotes(prev => ({ ...prev, [proposalId]: generatedVotes }));
-    };
-
-    const addInfoRequest = (proposalId: string, query: string) => {
-        const currentRounds = deliberations[proposalId] || [];
-        const nextRoundNum = currentRounds.length + 1;
-        const activeParticipants = agents.filter(a => a.active && a.domain !== 'ceo');
-
-        // Generate responses from ALL active participants
-        const responses = activeParticipants.map((agent, index) => {
-            const templates = [
-                `Regarding "${query}": From a ${agent.domain} perspective, this additional context clarifies our position. We have updated our risk assessment accordingly.`,
-                `Thanks for the details on "${query}". This helps mitigate some of the ${agent.domain} risks I saw earlier.`,
-                `Understood. With the clarification on "${query}", I'm adjusting my confidence score upwards.`,
-                `This answer regarding "${query}" addresses my main concerns. I'm ready to proceed.`
-            ];
-            const msg = templates[Math.floor(Math.random() * templates.length)];
-
-            return {
-                agent: agent.name,
-                domain: agent.domain,
-                message: msg,
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                isResponse: true
-            };
-        });
-
-        const userRequestRound: Round = {
-            round: nextRoundNum,
-            phase: 'Clarification & Re-evaluation',
-            conversations: [
-                {
-                    agent: 'User (Admin)',
-                    domain: 'admin',
-                    message: `REQUEST FOR INFO: ${query}`,
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    isChallenge: true
-                },
-                ...responses
+        // Domain-specific evidence snippets
+        const evidenceBase: Record<string, any[]> = {
+            'Finance': [
+                { source: 'Q4 Budget Analysis', excerpt: 'Current runway exceeds projections by 20% due to OPEX optimization.' },
+                { source: 'Tax Compliance Audit', excerpt: 'Reallocation of funds between business units is compliant with local regulations.' }
             ],
-            conclusion: `The council has reviewed the additional information regarding "${query}". Proceeding to final vote.`
+            'HR': [
+                { source: 'Retention Survey 2024', excerpt: '85% of employees cited "Growth Opportunities" as their top priority.' },
+                { source: 'Market Salary Index', excerpt: 'Standard roles in this sector have seen a 12% increase in salary expectations.' }
+            ],
+            'Operations': [
+                { source: 'Supply Chain Log', excerpt: 'Lead times for hardware acquisition currently average 45 days.' },
+                { source: 'Infrastructure Health', excerpt: 'Current server load is at 88% capacity during peak hours.' }
+            ]
         };
 
-        setDeliberations(prev => ({ ...prev, [proposalId]: [...currentRounds, userRequestRound] }));
+        const defaultEvidence = [{ source: 'General Policy', excerpt: 'Proposal aligns with standard corporate operational guidelines.' }];
 
-        // Auto-transition to voting after clarification
-        setTimeout(() => {
-            updateProposalStatus(proposalId, 'voting');
-        }, 5000);
+        for (let round = 1; round <= roundsCount; round++) {
+            // Each agent speaks in each round
+            participants.forEach((agent: any, idx: number) => {
+                let stance = 'neutral';
+                let messageText = '';
+                const seed = Math.random();
+
+                if (round === 1) {
+                    messageText = `Reviewing "${proposal.title}" from ${agent.name} perspective. Initial check looks positive.`;
+                } else if (round === 2) {
+                    messageText = `Analyzing long-term impacts. I suggest we consider the scalability of this idea.`;
+                } else if (round === 3) {
+                    if (seed > 0.7) {
+                        messageText = `I have minor concerns about the timeline mentioned. Can we expedite?`;
+                        stance = 'challenge';
+                    } else {
+                        messageText = `I agree with the operational feasibility proposed here.`;
+                        stance = 'approve';
+                    }
+                } else if (round === 4) {
+                    messageText = `Given the evidence, this seems like a solid path forward for the organization.`;
+                } else {
+                    messageText = seed > 0.2 ? `Final verdict: Supportive.` : `I will abstain from voting on this as it falls slightly outside my primary jurisdiction.`;
+                }
+
+                const msgEvidence = (round === 2 || round === 4) ? (evidenceBase[agent.domain] || defaultEvidence)[idx % 2] : null;
+
+                messagesToSave.push({
+                    proposal: proposal.id,
+                    agent_name: agent.name,
+                    agent_domain: agent.domain,
+                    message: messageText,
+                    round_number: round,
+                    is_conclusion: false,
+                    metadata: {
+                        isChallenge: stance === 'challenge',
+                        evidence: msgEvidence ? msgEvidence.excerpt : undefined,
+                        source: msgEvidence ? msgEvidence.source : undefined
+                    }
+                });
+            });
+
+            // Round Conclusion
+            messagesToSave.push({
+                proposal: proposal.id,
+                agent_name: 'Council Lead',
+                agent_domain: 'system',
+                message: `Round ${round} concluded. Consensus is building around ${round < 3 ? 'initial assessment' : 'execution details'}.`,
+                round_number: round,
+                is_conclusion: true,
+                metadata: {}
+            });
+        }
+
+        try {
+            // Save all messages in sequence (ideally batch, but sequential for simplicity here)
+            for (const msg of messagesToSave) {
+                await apiClient.post('/proposals/messages/', msg);
+            }
+            await refreshProposals();
+        } catch (error) {
+            console.error('Error generating deliberation:', error);
+        }
+    };
+
+    const addInfoRequest = async (proposalId: string, query: string) => {
+        try {
+            const currentRounds = deliberations[proposalId] || [];
+            const nextRound = currentRounds.length + 1;
+
+            await apiClient.post('/proposals/messages/', {
+                proposal: proposalId,
+                agent_name: 'User (Admin)',
+                agent_domain: 'admin',
+                message: `REQUEST FOR INFO: ${query}`,
+                round_number: nextRound,
+                metadata: { isChallenge: true }
+            });
+
+            const activeParticipants = agents.filter(a => a.active && a.domain !== 'ceo');
+            for (const agent of activeParticipants) {
+                await apiClient.post('/proposals/messages/', {
+                    proposal: proposalId,
+                    agent_name: agent.name,
+                    agent_domain: agent.domain,
+                    message: `Understood. Regarding "${query}", we will update our models.`,
+                    round_number: nextRound,
+                    metadata: { isResponse: true }
+                });
+            }
+
+            await refreshProposals();
+        } catch (error) {
+            console.error('Error adding info request:', error);
+        }
     };
 
     const getDeliberation = (id: string) => {
@@ -532,7 +325,19 @@ export const ProposalProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
 
     return (
-        <ProposalContext.Provider value={{ proposals, deliberations, votes, addProposal, updateProposalStatus, getDeliberation, generateDeliberation, addInfoRequest }}>
+        <ProposalContext.Provider value={{
+            proposals,
+            loading,
+            delibs_ready,
+            deliberations,
+            votes,
+            refreshProposals,
+            addProposal,
+            updateProposalStatus,
+            getDeliberation,
+            generateDeliberation,
+            addInfoRequest
+        }}>
             {children}
         </ProposalContext.Provider>
     );
