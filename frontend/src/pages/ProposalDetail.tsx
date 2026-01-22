@@ -61,7 +61,7 @@ const ProposalDetail: React.FC = () => {
             await addInfoRequest(proposal.id, infoRequest);
             setIsInfoModalVisible(false);
             setInfoRequest('');
-            message.success('Request sent to Agents. Council is reviewing your query.');
+            message.success('Request sent to Council. Discussion initiated.');
         } catch (error) {
             message.error('Failed to send request.');
         } finally {
@@ -103,36 +103,38 @@ const ProposalDetail: React.FC = () => {
     };
 
     return (
-        <div style={{ height: 'calc(100vh - 120px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: 0, height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
             {/* Header Card */}
             <div style={{ flexShrink: 0, marginBottom: 16 }}>
-                <Card bodyStyle={{ padding: '12px 24px' }}>
+                <Card className="glass-card" bodyStyle={{ padding: '20px 24px' }}>
                     <Row gutter={[24, 16]} align="middle">
                         <Col span={16}>
                             <Space size="middle" align="baseline">
-                                <Title level={4} style={{ marginBottom: 0 }}>{proposal.title}</Title>
-                                <Tag color="blue">{proposal.domain}</Tag>
-                                <Tag color={proposal.riskTier === 'high' ? 'red' : proposal.riskTier === 'medium' ? 'orange' : 'green'}>
+                                <Title level={4} style={{ marginBottom: 0, color: '#fff' }}>{proposal.title}</Title>
+                                <Tag style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid #8b5cf633', color: '#8b5cf6' }}>{proposal.domain}</Tag>
+                                <Tag color={proposal.riskTier === 'high' ? 'error' : proposal.riskTier === 'medium' ? 'warning' : 'success'} style={{ background: 'transparent' }}>
                                     {(proposal.riskTier || 'medium').toUpperCase()} RISK
                                 </Tag>
-                                <Tag color="processing" icon={proposal.status === 'deliberating' ? <SyncOutlined spin /> : null}>
+                                <Tag color="#8b5cf6" style={{ background: 'transparent' }} icon={proposal.status === 'deliberating' ? <SyncOutlined spin /> : null}>
                                     {(proposal.status || 'deliberating').toUpperCase()}
                                 </Tag>
                             </Space>
-                            <Paragraph style={{ marginTop: 8, marginBottom: 0 }} ellipsis={{ rows: 2 }}>{proposal.description}</Paragraph>
+                            <Paragraph style={{ marginTop: 8, marginBottom: 0, color: 'rgba(255, 255, 255, 0.45)' }} ellipsis={{ rows: 2 }}>{proposal.description}</Paragraph>
                         </Col>
                         <Col span={8} style={{ textAlign: 'right' }}>
-                            <Space>
-                                <div style={{ textAlign: 'right', marginRight: 16 }}>
-                                    <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>Council Confidence</Text>
-                                    <Text strong style={{ fontSize: 18, color: proposal.confidence >= 0.8 ? '#52c41a' : '#faad14' }}>
+                            <Space size={20}>
+                                <div style={{ textAlign: 'right' }}>
+                                    <Text type="secondary" style={{ display: 'block', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Council Confidence</Text>
+                                    <Text strong style={{ fontSize: 24, color: '#fff' }}>
                                         {((proposal.confidence || 0) * 100).toFixed(0)}%
                                     </Text>
                                 </div>
                                 <Progress
                                     type="circle"
                                     percent={(proposal.confidence || 0) * 100}
-                                    width={50}
+                                    width={45}
+                                    strokeColor="#8b5cf6"
+                                    trailColor="rgba(255, 255, 255, 0.05)"
                                     format={() => null}
                                 />
                             </Space>
@@ -142,89 +144,103 @@ const ProposalDetail: React.FC = () => {
             </div>
 
             {/* Main Content Area */}
-            <Row gutter={16} style={{ flex: 1, overflow: 'hidden' }}>
+            <Row gutter={24} style={{ flex: 1, overflow: 'hidden' }}>
                 <Col span={16} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                     <Card
-                        title={<span><MessageOutlined /> Multi-Round Deliberation</span>}
-                        style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-                        bodyStyle={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '0 24px 24px 24px', overflow: 'hidden' }}
-                        extra={<Button type="link" onClick={refreshProposals} icon={<SyncOutlined />}>Refresh</Button>}
+                        className="glass-card"
+                        title={<span style={{ color: '#fff' }}><MessageOutlined style={{ marginRight: 8 }} /> Multi-Round Deliberation</span>}
+                        style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+                        bodyStyle={{ flex: 1, padding: '24px', overflowY: 'auto' }}
+                        extra={<Button type="link" onClick={refreshProposals} icon={<SyncOutlined />} style={{ color: '#8b5cf6' }}>Refresh</Button>}
                     >
-                        <div style={{ flex: 1, overflowY: 'auto', paddingRight: '10px' }}>
-                            <Timeline mode="left" style={{ marginTop: 24 }}>
-                                {rounds.map((r, i) => (
-                                    <Timeline.Item key={i} color="blue" label={<Text strong>Round {r.round}</Text>}>
-                                        <div style={{ marginBottom: 24 }}>
-                                            <Tag color="geekblue" style={{ marginBottom: 16 }}>{r.phase}</Tag>
+                        <Timeline mode="left">
+                            {rounds.map((r, i) => (
+                                <Timeline.Item key={i} color="#8b5cf6" label={<Text style={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: 12 }}>RD {r.round}</Text>}>
+                                    <div style={{ marginBottom: 24 }}>
+                                        <Tag style={{ background: 'rgba(139, 92, 246, 0.15)', border: 'none', color: '#fff', marginBottom: 16 }}>{r.phase}</Tag>
 
-                                            {r.conversations?.map((conv, idx) => (
-                                                <div key={idx} style={{ display: 'flex', marginBottom: 16, alignItems: 'flex-start' }}>
-                                                    <Avatar
-                                                        icon={conv.domain === 'admin' ? <UserOutlined /> : <RobotOutlined />}
-                                                        style={{ backgroundColor: getAgentColor(conv.domain), marginRight: 12, minWidth: 32 }}
-                                                    />
-                                                    <div style={{ flex: 1 }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-                                                            <Text strong style={{ marginRight: 8, fontSize: 13 }}>{conv.agent}</Text>
-                                                            <Text type="secondary" style={{ fontSize: 11 }}>{conv.timestamp}</Text>
-                                                            {conv.isChallenge && <Tag color="error" style={{ marginLeft: 8, fontSize: 10 }}>Conflict</Tag>}
-                                                            {conv.message.includes('agree') && <Tag color="success" style={{ marginLeft: 8, fontSize: 10 }}>Agree</Tag>}
-                                                            {conv.message.includes('abstain') && <Tag color="default" style={{ marginLeft: 8, fontSize: 10 }}>Abstain</Tag>}
-                                                        </div>
-                                                        <div style={{
-                                                            background: conv.isChallenge ? '#fff1f0' : '#f0f2f5',
-                                                            padding: '12px 16px',
-                                                            borderRadius: '0 12px 12px 12px',
-                                                            border: '1px solid #e8e8e8',
-                                                            display: 'inline-block',
-                                                            maxWidth: '92%'
-                                                        }}>
-                                                            <Text style={{ fontSize: 14 }}>{conv.message}</Text>
-
-                                                            {conv.evidence && (
-                                                                <div style={{ marginTop: 8, padding: '8px 12px', background: '#fff', borderRadius: 4, borderLeft: '3px solid #1890ff' }}>
-                                                                    <Space direction="vertical" size={0}>
-                                                                        <Text strong style={{ fontSize: 11, color: '#1890ff' }}>
-                                                                            <SolutionOutlined /> EVIDENCE ATTACHED
-                                                                        </Text>
-                                                                        <Text type="secondary" style={{ fontSize: 12, fontStyle: 'italic' }}>
-                                                                            "{conv.evidence}"
-                                                                        </Text>
-                                                                    </Space>
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                        {r.conversations?.map((conv, idx) => (
+                                            <div key={idx} style={{ display: 'flex', marginBottom: 16, alignItems: 'flex-start' }}>
+                                                <Avatar
+                                                    icon={conv.domain === 'admin' ? <UserOutlined /> : <RobotOutlined />}
+                                                    style={{ backgroundColor: getAgentColor(conv.domain), marginRight: 12, minWidth: 32, boxShadow: `0 0 10px ${getAgentColor(conv.domain)}44` }}
+                                                />
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                                                        <Text strong style={{ marginRight: 8, fontSize: 13, color: '#fff' }}>{conv.agent}</Text>
+                                                        <Text type="secondary" style={{ fontSize: 11 }}>{conv.timestamp}</Text>
+                                                        {conv.isChallenge && <Tag color="error" style={{ marginLeft: 8, fontSize: 10, background: 'transparent' }}>Conflict</Tag>}
+                                                    </div>
+                                                    <div style={{
+                                                        background: conv.isChallenge ? 'rgba(255, 77, 79, 0.05)' : 'rgba(255, 255, 255, 0.03)',
+                                                        padding: '12px 16px',
+                                                        borderRadius: '0 12px 12px 12px',
+                                                        border: `1px solid ${conv.isChallenge ? 'rgba(255, 77, 79, 0.2)' : 'rgba(255, 255, 255, 0.05)'}`,
+                                                        display: 'inline-block',
+                                                        maxWidth: '92%'
+                                                    }}>
+                                                        <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>{conv.message}</Text>
+                                                        {conv.evidence && (
+                                                            <div style={{
+                                                                marginTop: 12,
+                                                                padding: '10px 14px',
+                                                                background: 'rgba(0, 0, 0, 0.2)',
+                                                                borderRadius: 8,
+                                                                borderLeft: `3px solid ${getAgentColor(conv.domain)}`,
+                                                                boxShadow: 'inset 0 0 10px rgba(0,0,0,0.2)'
+                                                            }}>
+                                                                <Space direction="vertical" size={2}>
+                                                                    <Text strong style={{ fontSize: 10, color: getAgentColor(conv.domain), textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                                        <SolutionOutlined style={{ marginRight: 4 }} />
+                                                                        Evidence: {conv.source || 'Council Source'}
+                                                                    </Text>
+                                                                    <Text type="secondary" style={{ fontSize: 13, fontStyle: 'italic', lineHeight: '1.4', color: 'rgba(255, 255, 255, 0.45)' }}>
+                                                                        "{conv.evidence}"
+                                                                    </Text>
+                                                                </Space>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
-                                            ))}
+                                            </div>
+                                        ))}
 
-                                            {r.conclusion && (
-                                                <Alert
-                                                    message={`Round ${r.round} Summary`}
-                                                    description={r.conclusion}
-                                                    type="info"
-                                                    showIcon
-                                                    style={{ marginTop: 16, borderRadius: 8 }}
-                                                />
-                                            )}
-                                        </div>
-                                    </Timeline.Item>
-                                ))}
-                                <div ref={chatEndRef} />
-                            </Timeline>
-                        </div>
+                                        {r.conclusion && (
+                                            <div style={{
+                                                marginTop: 12,
+                                                padding: '12px 16px',
+                                                background: 'rgba(139, 92, 246, 0.05)',
+                                                borderRadius: 12,
+                                                border: '1px solid rgba(139, 92, 246, 0.2)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 12
+                                            }}>
+                                                <SyncOutlined style={{ color: '#8b5cf6' }} />
+                                                <div>
+                                                    <Text strong style={{ display: 'block', fontSize: 12, color: '#8b5cf6', textTransform: 'uppercase' }}>Round {r.round} Result</Text>
+                                                    <Text style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.85)' }}>{r.conclusion}</Text>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </Timeline.Item>
+                            ))}
+                            <div ref={chatEndRef} />
+                        </Timeline>
                     </Card>
                 </Col>
 
-                <Col span={8} style={{ height: '100%', overflowY: 'auto' }}>
-                    <Card title="🗳️ Council Actions">
-                        <Space direction="vertical" style={{ width: '100%' }}>
+                <Col span={8} style={{ height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <Card title={<span style={{ color: '#fff' }}>🗳️ Council Actions</span>} className="glass-card">
+                        <Space direction="vertical" style={{ width: '100%' }} size={12}>
                             <Button
                                 type="primary"
                                 block
                                 icon={<CheckCircleOutlined />}
                                 onClick={handleApprove}
                                 disabled={rounds.length < 5}
+                                style={{ height: 40 }}
                             >
                                 Unified Approval
                             </Button>
@@ -234,36 +250,38 @@ const ProposalDetail: React.FC = () => {
                                 icon={<CloseCircleOutlined />}
                                 onClick={handleReject}
                                 disabled={rounds.length < 3}
+                                style={{ height: 40, background: 'rgba(255, 77, 79, 0.05)', border: '1px solid rgba(255, 77, 79, 0.2)' }}
                             >
                                 Reject Proposal
                             </Button>
-                            <Button block icon={<QuestionCircleOutlined />} onClick={handleRequestMoreInfo}>
+                            <Button
+                                block
+                                icon={<QuestionCircleOutlined />}
+                                onClick={handleRequestMoreInfo}
+                                style={{ height: 40, background: 'rgba(255, 255, 255, 0.05)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                            >
                                 Query Council
                             </Button>
                         </Space>
                         {rounds.length < 5 && (
-                            <div style={{ marginTop: 12 }}>
-                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                    <SyncOutlined spin style={{ marginRight: 8 }} />
+                            <div style={{ marginTop: 16, padding: '12px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: 8, border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                <Text type="secondary" style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.45)' }}>
+                                    <SyncOutlined spin style={{ marginRight: 8, color: '#8b5cf6' }} />
                                     Awaiting full 5-round deliberation...
                                 </Text>
                             </div>
                         )}
                     </Card>
 
-                    <Card title="📊 Proposed Impact" style={{ marginTop: 16 }}>
-                        <Paragraph type="secondary">
-                            {proposal.impactSummary || "Retrieving automated impact projections from active agents..."}
+                    <Card title={<span style={{ color: '#fff' }}>📊 Strategic Impact</span>} className="glass-card">
+                        <Paragraph style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 13, lineHeight: '1.6' }}>
+                            {proposal.impactSummary || "Retrieving automated impact projections from active agents based on cross-domain data points..."}
                         </Paragraph>
                         {rounds.length >= 3 && (
-                            <Alert
-                                message="Strategic Alignment"
-                                description="High alignment with Q1-Q2 organizational objectives."
-                                type="success"
-                                icon={<CheckCircleOutlined />}
-                                showIcon
-                                style={{ marginTop: 8 }}
-                            />
+                            <div style={{ marginTop: 16, padding: '12px', background: 'rgba(82, 196, 26, 0.05)', borderRadius: 8, border: '1px solid rgba(82, 196, 26, 0.2)', display: 'flex', gap: 12, alignItems: 'center' }}>
+                                <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 18 }} />
+                                <Text style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: 13 }}>High Strategic Alignment</Text>
+                            </div>
                         )}
                     </Card>
                 </Col>

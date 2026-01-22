@@ -43,20 +43,20 @@ const MainLayout: React.FC = () => {
     );
 
     const notificationMenu = (
-        <div style={{ width: 350, maxHeight: 400, overflow: 'auto', background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text strong>Notifications</Text>
+        <div style={{ width: 350, maxHeight: 400, overflow: 'auto', background: '#1a0b3d', borderRadius: 12, border: '1px solid rgba(139, 92, 246, 0.3)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text strong style={{ color: '#fff' }}>Notifications</Text>
                 <div>
-                    <Button size="small" type="text" icon={<CheckOutlined />} onClick={markAllAsRead}>
+                    <Button size="small" type="text" icon={<CheckOutlined />} onClick={markAllAsRead} style={{ color: '#8b5cf6' }}>
                         Mark all read
                     </Button>
-                    <Button size="small" type="text" icon={<DeleteOutlined />} onClick={clearAll}>
+                    <Button size="small" type="text" icon={<DeleteOutlined />} onClick={clearAll} style={{ color: 'rgba(255, 255, 255, 0.45)' }}>
                         Clear
                     </Button>
                 </div>
             </div>
             {notifications.length === 0 ? (
-                <Empty description="No notifications" style={{ padding: 24 }} />
+                <Empty description={<Text type="secondary">No notifications</Text>} style={{ padding: 24 }} />
             ) : (
                 <List
                     dataSource={notifications}
@@ -65,22 +65,23 @@ const MainLayout: React.FC = () => {
                             key={item.id}
                             style={{
                                 padding: '12px 16px',
-                                background: item.read ? '#fff' : '#f0f7ff',
-                                cursor: 'pointer'
+                                background: item.read ? 'transparent' : 'rgba(139, 92, 246, 0.05)',
+                                cursor: 'pointer',
+                                borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
                             }}
                             onClick={() => markAsRead(item.id)}
                         >
                             <List.Item.Meta
                                 title={
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <Text strong={!item.read}>{item.title}</Text>
-                                        {!item.read && <Badge status="processing" />}
+                                        <Text strong={!item.read} style={{ color: item.read ? 'rgba(255, 255, 255, 0.85)' : '#fff' }}>{item.title}</Text>
+                                        {!item.read && <Badge status="processing" color="#8b5cf6" />}
                                     </div>
                                 }
                                 description={
                                     <>
-                                        <div>{item.message}</div>
-                                        <Text type="secondary" style={{ fontSize: 12 }}>
+                                        <div style={{ color: 'rgba(255, 255, 255, 0.65)' }}>{item.message}</div>
+                                        <Text type="secondary" style={{ fontSize: 11 }}>
                                             {new Date(item.timestamp).toLocaleString()}
                                         </Text>
                                     </>
@@ -94,21 +95,24 @@ const MainLayout: React.FC = () => {
     );
 
     return (
-        <Layout style={{ minHeight: '100vh' }}>
+        <Layout style={{ minHeight: '100vh', background: 'transparent' }}>
             <Sider
-                theme="light"
+                theme="dark"
                 width={240}
                 style={{
-                    borderRight: '1px solid #f0f0f0',
+                    borderRight: '1px solid rgba(255, 255, 255, 0.05)',
                     position: 'fixed',
                     left: 0,
                     top: 0,
                     bottom: 0,
+                    background: 'rgba(13, 6, 26, 0.7)',
+                    backdropFilter: 'blur(20px)',
+                    zIndex: 1001,
                 }}
             >
-                <div style={{ padding: '16px 24px', borderBottom: '1px solid #f0f0f0' }}>
-                    <Text strong style={{ fontSize: 20, color: '#1890ff' }}>
-                        🏛️ BoardRoom
+                <div style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <Text strong style={{ fontSize: 20, color: '#fff', display: 'flex', alignItems: 'center' }}>
+                        <span style={{ fontSize: 24, marginRight: 8 }}>🏛️</span> BoardRoom
                     </Text>
                 </div>
                 <Menu
@@ -120,35 +124,36 @@ const MainLayout: React.FC = () => {
                 />
             </Sider>
 
-            <Layout style={{ marginLeft: 240 }}>
+            <Layout style={{ marginLeft: 240, background: 'transparent' }}>
                 <Header
                     style={{
-                        background: '#fff',
+                        background: 'rgba(13, 6, 26, 0.5)',
+                        backdropFilter: 'blur(10px)',
                         padding: '0 24px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'flex-end',
                         gap: 16,
-                        borderBottom: '1px solid #f0f0f0',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
                         position: 'sticky',
                         top: 0,
-                        zIndex: 100,
+                        zIndex: 1000,
                     }}
                 >
                     <Dropdown overlay={notificationMenu} trigger={['click']} placement="bottomRight">
-                        <Badge count={unreadCount}>
-                            <BellOutlined style={{ fontSize: 18, cursor: 'pointer' }} />
+                        <Badge count={unreadCount} color="#8b5cf6">
+                            <BellOutlined style={{ fontSize: 18, cursor: 'pointer', color: 'rgba(255, 255, 255, 0.85)' }} />
                         </Badge>
                     </Dropdown>
                     <Dropdown overlay={userMenu} placement="bottomRight">
                         <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Avatar icon={<UserOutlined />} />
-                            <Text>Admin User</Text>
+                            <Avatar icon={<UserOutlined style={{ color: '#fff' }} />} style={{ backgroundColor: '#8b5cf6' }} />
+                            <Text style={{ color: '#fff' }}>Admin User</Text>
                         </div>
                     </Dropdown>
                 </Header>
 
-                <Content style={{ padding: 24, background: '#f0f2f5', minHeight: 'calc(100vh - 64px)' }}>
+                <Content style={{ padding: 32, minHeight: 'calc(100vh - 64px)' }}>
                     <Outlet />
                 </Content>
             </Layout>

@@ -123,68 +123,109 @@ const Agents: React.FC = () => {
 
     return (
         <div>
-            <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-                <Title level={4} style={{ margin: 0 }}>CXO Agents</Title>
-                <div>
+            <Row justify="space-between" align="middle" style={{ marginBottom: 32 }}>
+                <Title level={3} style={{ margin: 0, color: '#fff', fontWeight: 600 }}>CXO Agents</Title>
+                <div style={{ display: 'flex', gap: 12 }}>
                     <Button
-                        type="default"
+                        type="primary"
                         icon={<PlusOutlined />}
                         onClick={showCreateModal}
-                        style={{ marginRight: 8 }}
+                        style={{ height: 40, padding: '0 24px' }}
                     >
                         Create New Agent
                     </Button>
-                    <Button type="primary" icon={<SaveOutlined />} onClick={handleSaveAll}>
-                        Save All Changes
+                    <Button
+                        icon={<SaveOutlined />}
+                        onClick={handleSaveAll}
+                        style={{ height: 40, background: 'rgba(255, 255, 255, 0.05)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                    >
+                        Save Changes
                     </Button>
                 </div>
             </Row>
-            <Row gutter={[16, 16]}>
+            <Row gutter={[24, 24]}>
                 {agents.map((agent) => (
-                    <Col xs={24} sm={12} lg={8} xl={6} key={agent.domain}>
-                        <Card hoverable>
-                            <Row align="middle" gutter={12}>
+                    <Col xs={24} sm={12} lg={8} key={agent.domain}>
+                        <Card
+                            className={`glass-card ${agent.domain === 'ceo' ? 'glass-card-active' : ''}`}
+                            bodyStyle={{ padding: '24px' }}
+                        >
+                            <Row align="middle" gutter={16} style={{ marginBottom: 20 }}>
                                 <Col>
-                                    <Avatar size={48} icon={<RobotOutlined />} style={{ backgroundColor: colorMap[agent.domain] || '#1890ff' }} />
+                                    <div style={{
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: '12px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        background: `linear-gradient(135deg, ${colorMap[agent.domain]}55 0%, ${colorMap[agent.domain]} 100%)`,
+                                        boxShadow: `0 4px 12px ${colorMap[agent.domain]}33`
+                                    }}>
+                                        <RobotOutlined style={{ fontSize: 24, color: '#fff' }} />
+                                    </div>
                                 </Col>
                                 <Col flex="auto">
-                                    <Text strong>{agent.name}</Text>
-                                    <br />
-                                    <Text type="secondary" style={{ fontSize: 12 }}>{agent.description}</Text>
+                                    <Title level={5} style={{ margin: 0, color: '#fff' }}>{agent.name}</Title>
+                                    <Text type="secondary" style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.45)' }}>{agent.description}</Text>
                                 </Col>
                             </Row>
-                            <div style={{ marginTop: 16 }}>
-                                <Row justify="space-between" align="middle">
-                                    <Text type="secondary">Active</Text>
+
+                            <div style={{ background: 'rgba(0,0,0,0.1)', borderRadius: 12, padding: '16px', marginBottom: 20 }}>
+                                <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
+                                    <Text style={{ color: 'rgba(255, 255, 255, 0.65)' }}>Active</Text>
                                     <Switch
                                         checked={agent.active}
                                         size="small"
                                         onChange={() => handleToggle(agent.domain)}
+                                        style={{ background: agent.active ? '#8b5cf6' : 'rgba(255, 255, 255, 0.1)' }}
                                     />
                                 </Row>
-                                <Row justify="space-between" align="middle" style={{ marginTop: 8 }}>
-                                    <Text type="secondary">Vote Weight</Text>
-                                    <InputNumber<number>
-                                        min={0}
-                                        max={5}
-                                        step={0.5}
-                                        value={agent.weight}
-                                        onChange={(value) => handleWeightChange(agent.domain, value)}
-                                        style={{ width: 80 }}
-                                        formatter={value => `${value}x`}
-                                        parser={value => parseFloat(value?.replace('x', '') || '0')}
-                                    />
+
+                                <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
+                                    <Text style={{ color: 'rgba(255, 255, 255, 0.65)' }}>Vote Weight</Text>
+                                    <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', borderRadius: 6, padding: '2px 8px' }}>
+                                        <InputNumber<number>
+                                            min={0}
+                                            max={5}
+                                            step={0.5}
+                                            value={agent.weight}
+                                            onChange={(value) => handleWeightChange(agent.domain, value)}
+                                            style={{ width: 60, background: 'transparent', border: 'none', color: '#fff' }}
+                                            formatter={value => `${value}x`}
+                                            parser={value => parseFloat(value?.replace('x', '') || '0')}
+                                        />
+                                    </div>
                                 </Row>
-                                <Row justify="space-between" align="middle" style={{ marginTop: 8 }}>
-                                    <Text type="secondary">Can Execute</Text>
-                                    <Tag color={agent.canExecute ? 'success' : 'default'}>{agent.canExecute ? 'Yes' : 'No'}</Tag>
+
+                                <Row justify="space-between" align="middle">
+                                    <Text style={{ color: 'rgba(255, 255, 255, 0.65)' }}>Can Execute</Text>
+                                    <Tag
+                                        style={{
+                                            margin: 0,
+                                            background: agent.canExecute ? 'rgba(82, 196, 26, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                                            color: agent.canExecute ? '#52c41a' : 'rgba(255, 255, 255, 0.45)',
+                                            border: `1px solid ${agent.canExecute ? '#52c41a44' : 'rgba(255, 255, 255, 0.1)'}`,
+                                            borderRadius: 4,
+                                            padding: '0 12px'
+                                        }}
+                                    >
+                                        {agent.canExecute ? 'Yes' : 'No'}
+                                    </Tag>
                                 </Row>
                             </div>
+
                             <Button
                                 block
-                                style={{ marginTop: 16 }}
                                 icon={<SettingOutlined />}
                                 onClick={() => showConfigureModal(agent)}
+                                style={{
+                                    height: 38,
+                                    background: 'rgba(255, 255, 255, 0.03)',
+                                    color: '#fff',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    borderRadius: 10
+                                }}
                             >
                                 Configure
                             </Button>

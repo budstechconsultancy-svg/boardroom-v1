@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Card, Table, Tag, Button, Space, Modal, Form, Input, Select, message, Spin } from 'antd';
+import { Card, Table, Tag, Button, Space, Modal, Form, Input, Select, message, Spin, Typography } from 'antd';
 import { PlusOutlined, SyncOutlined, CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useConnectors, Connector } from '../contexts/ConnectorContext';
 
 const { Option } = Select;
+const { Text } = Typography;
 const antIcon = <LoadingOutlined style={{ fontSize: 24 }} spin />;
 
 const Connectors: React.FC = () => {
@@ -97,27 +98,44 @@ const Connectors: React.FC = () => {
     };
 
     const columns = [
-        { title: 'Name', dataIndex: 'name', key: 'name' },
-        { title: 'Type', dataIndex: 'type', key: 'type', render: (t: string) => <Tag>{t}</Tag> },
+        { title: 'Name', dataIndex: 'name', key: 'name', render: (text: string) => <Text style={{ color: '#fff', fontWeight: 500 }}>{text}</Text> },
+        { title: 'Type', dataIndex: 'type', key: 'type', render: (t: string) => <Tag style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#fff' }}>{t}</Tag> },
         {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
             render: (s: string) => (
-                <Tag icon={s === 'connected' ? <CheckCircleOutlined /> : <CloseCircleOutlined />} color={s === 'connected' ? 'success' : 'error'}>
-                    {s}
+                <Tag
+                    icon={s === 'connected' ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+                    color={s === 'connected' ? 'success' : 'error'}
+                    style={{ background: 'transparent' }}
+                >
+                    {s.toUpperCase()}
                 </Tag>
             ),
         },
-        { title: 'Last Sync', dataIndex: 'lastSync', key: 'lastSync' },
-        { title: 'Rows', dataIndex: 'rowsImported', key: 'rowsImported' },
+        { title: 'Last Sync', dataIndex: 'lastSync', key: 'lastSync', render: (t: string) => <Text type="secondary">{t}</Text> },
+        { title: 'Rows', dataIndex: 'rowsImported', key: 'rowsImported', render: (n: number) => <Text style={{ color: '#8b5cf6' }}>{n.toLocaleString()}</Text> },
         {
             title: 'Actions',
             key: 'actions',
             render: (_: any, record: Connector) => (
                 <Space>
-                    <Button size="small" icon={<SyncOutlined />} onClick={() => handleSync(record)}>Sync</Button>
-                    <Button size="small" onClick={() => showConfigureModal(record)}>Configure</Button>
+                    <Button
+                        size="small"
+                        icon={<SyncOutlined />}
+                        onClick={() => handleSync(record)}
+                        style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)', color: '#8b5cf6' }}
+                    >
+                        Sync
+                    </Button>
+                    <Button
+                        size="small"
+                        onClick={() => showConfigureModal(record)}
+                        style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#fff' }}
+                    >
+                        Configure
+                    </Button>
                 </Space>
             ),
         },
@@ -125,8 +143,8 @@ const Connectors: React.FC = () => {
 
     if (loading) {
         return (
-            <div style={{ textAlign: 'center', padding: '50px' }}>
-                <Spin indicator={antIcon} tip="Loading Connectors..." />
+            <div style={{ textAlign: 'center', padding: '100px' }}>
+                <Spin indicator={<LoadingOutlined style={{ fontSize: 40, color: '#8b5cf6' }} spin />} tip="Establishing ERP Handshakes..." />
             </div>
         );
     }
@@ -134,10 +152,18 @@ const Connectors: React.FC = () => {
     return (
         <>
             <Card
-                title="ERP Connectors"
-                extra={<Button type="primary" icon={<PlusOutlined />} onClick={showAddModal}>Add Connector</Button>}
+                className="glass-card"
+                title={<span style={{ color: '#fff' }}>Strategic Data Connectors</span>}
+                extra={<Button type="primary" icon={<PlusOutlined />} onClick={showAddModal}>Add Link</Button>}
+                bodyStyle={{ padding: 0 }}
             >
-                <Table dataSource={connectors} columns={columns} rowKey="id" />
+                <Table
+                    dataSource={connectors}
+                    columns={columns}
+                    rowKey="id"
+                    pagination={false}
+                    style={{ padding: '0 24px 24px 24px' }}
+                />
             </Card>
 
             {/* Add Connector Modal */}

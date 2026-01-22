@@ -9,18 +9,31 @@ import { AgentProvider } from './contexts/AgentContext';
 import { ConnectorProvider } from './contexts/ConnectorContext';
 import './index.css';
 
+import { ConfigProvider, theme } from 'antd';
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-        <BrowserRouter>
-            <NotificationProvider>
-                <AgentProvider>
-                    <ConnectorProvider>
-                        <ProposalProvider>
-                            <App />
-                        </ProposalProvider>
-                    </ConnectorProvider>
-                </AgentProvider>
-            </NotificationProvider>
-        </BrowserRouter>
+        <ConfigProvider
+            theme={{
+                algorithm: theme.darkAlgorithm,
+                token: {
+                    colorPrimary: '#8b5cf6',
+                    borderRadius: 12,
+                    fontFamily: 'Outfit, sans-serif',
+                },
+            }}
+        >
+            <BrowserRouter>
+                <NotificationProvider>
+                    <AgentProvider>
+                        <ConnectorProvider>
+                            <ProposalProvider>
+                                <App />
+                            </ProposalProvider>
+                        </ConnectorProvider>
+                    </AgentProvider>
+                </NotificationProvider>
+            </BrowserRouter>
+        </ConfigProvider>
     </React.StrictMode>
 );

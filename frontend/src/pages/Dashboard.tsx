@@ -29,10 +29,13 @@ const Dashboard: React.FC = () => {
     }
 
     // Calculate KPI data dynamically
+    console.log('Total proposals:', proposals.length);
+    console.log('Proposals statuses:', proposals.map(p => p.status));
+
     // Active = Currently in deliberation (Agents are working)
     const activeProposals = proposals.filter(p => p.status === 'deliberating').length;
-    // Pending = Waiting for vote or CEO (Agents are done, humans/system resolving)
-    const pendingApprovals = proposals.filter(p => p.status === 'voting' || p.status === 'pending_ceo').length;
+    // Pending = Waiting for vote (Agents are done, system/humans resolving)
+    const pendingApprovals = proposals.filter(p => p.status === 'voting').length;
     const autoExecuted = proposals.filter(p => p.status === 'approved').length;
 
     const completedProposals = proposals.filter(p => ['approved', 'rejected'].includes(p.status)).length;
@@ -41,33 +44,29 @@ const Dashboard: React.FC = () => {
 
     // Sample static data for dashboard
     const kpiData = [
-        { title: 'Active Proposals', value: activeProposals, icon: <FileTextOutlined />, color: '#1890ff' },
-        { title: 'Pending Approvals', value: pendingApprovals, icon: <ClockCircleOutlined />, color: '#faad14' },
+        { title: 'Active Proposals', value: activeProposals, icon: <ClockCircleOutlined />, color: '#faad14' },
+        { title: 'Pending Approvals', value: pendingApprovals, icon: <SyncOutlined />, color: '#8b5cf6' },
         { title: 'Auto-Executed', value: autoExecuted, icon: <CheckCircleOutlined />, color: '#52c41a', suffix: 'total' },
         { title: 'Override Rate', value: overrideRate, icon: <ExclamationCircleOutlined />, color: '#ff4d4f', suffix: '%' },
     ];
 
     // Get recent 5 proposals
-    const recentProposals = [...proposals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
+    const recentProposals = [...proposals].sort((a, b) => Number(b.id) - Number(a.id)).slice(0, 5);
 
     const columns = [
         {
             title: 'ID',
             dataIndex: 'id',
             key: 'id',
-            render: (id: string | number) => `P-${id.toString().padStart(3, '0')}`
+            render: (id: string | number) => <Text strong style={{ color: '#8b5cf6' }}>{`P-${id.toString().padStart(4, '0')}`}</Text>
         },
-        { title: 'Title', dataIndex: 'title', key: 'title' },
+        { title: 'Title', dataIndex: 'title', key: 'title', render: (text: string) => <Text style={{ color: '#fff' }}>{text}</Text> },
         {
             title: 'Domain',
             dataIndex: 'domain',
             key: 'domain',
             render: (domain: string) => (
-                <Tag color={
-                    domain === 'Finance' ? 'orange' :
-                        domain === 'HR' ? 'blue' :
-                            domain === 'Ops' ? 'purple' : 'green'
-                }>
+                <Tag color="rgba(255, 255, 255, 0.05)" style={{ border: '1px solid rgba(255, 255, 255, 0.1)', color: '#fff' }}>
                     {domain}
                 </Tag>
             ),
@@ -78,13 +77,13 @@ const Dashboard: React.FC = () => {
             key: 'status',
             render: (status: string) => {
                 const config: Record<string, { color: string; icon: React.ReactNode }> = {
-                    approved: { color: 'success', icon: <CheckCircleOutlined /> },
-                    voting: { color: 'processing', icon: <SyncOutlined spin /> },
-                    deliberating: { color: 'warning', icon: <ClockCircleOutlined /> },
-                    pending: { color: 'default', icon: <ClockCircleOutlined /> },
-                    rejected: { color: 'error', icon: <ExclamationCircleOutlined /> }
+                    approved: { color: '#52c41a', icon: <CheckCircleOutlined /> },
+                    voting: { color: '#8b5cf6', icon: <SyncOutlined spin /> },
+                    deliberating: { color: '#faad14', icon: <ClockCircleOutlined /> },
+                    pending: { color: 'rgba(255, 255, 255, 0.45)', icon: <ClockCircleOutlined /> },
+                    rejected: { color: '#ff4d4f', icon: <ExclamationCircleOutlined /> }
                 };
-                return <Tag icon={config[status]?.icon} color={config[status]?.color}>{status?.toUpperCase()}</Tag>;
+                return <Tag icon={config[status]?.icon} style={{ color: config[status]?.color, background: 'transparent', border: `1px solid ${config[status]?.color}44` }}>{status?.toUpperCase()}</Tag>;
             },
         },
         {
@@ -95,8 +94,9 @@ const Dashboard: React.FC = () => {
                 <Progress
                     percent={val * 100}
                     size="small"
-                    status={val >= 0.8 ? 'success' : val >= 0.6 ? 'normal' : 'exception'}
-                    format={(p) => `${p?.toFixed(0)}%`}
+                    strokeColor="#8b5cf6"
+                    trailColor="rgba(255, 255, 255, 0.05)"
+                    format={(p) => <span style={{ color: '#fff' }}>{`${p?.toFixed(0)}%`}</span>}
                 />
             ),
         },
@@ -104,18 +104,19 @@ const Dashboard: React.FC = () => {
 
     return (
         <div>
-            <Title level={4} style={{ marginBottom: 24 }}>Dashboard</Title>
+            <Title level={4} style={{ marginBottom: 24, color: '#fff' }}>Dashboard Overview</Title>
 
             {/* KPI Tiles */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
                 {kpiData.map((kpi, index) => (
                     <Col xs={24} sm={12} lg={6} key={index}>
-                        <Card className="dashboard-card">
+                        <Card className="glass-card" bodyStyle={{ padding: '24px' }}>
                             <Statistic
-                                title={kpi.title}
+                                title={<span style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{kpi.title}</span>}
                                 value={kpi.value}
                                 suffix={kpi.suffix}
-                                valueStyle={{ color: kpi.color }}
+                                prefix={kpi.icon}
+                                valueStyle={{ color: kpi.color, fontSize: 28, fontWeight: 600 }}
                             />
                         </Card>
                     </Col>
@@ -123,9 +124,9 @@ const Dashboard: React.FC = () => {
             </Row>
 
             {/* Performance Metrics */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
                 <Col xs={24} lg={12}>
-                    <Card title="Decision Accuracy" className="dashboard-card">
+                    <Card title={<span style={{ color: '#fff' }}>Decision Accuracy</span>} className="glass-card">
                         <Row align="middle" gutter={16}>
                             <Col>
                                 <Statistic
@@ -136,33 +137,34 @@ const Dashboard: React.FC = () => {
                                 />
                             </Col>
                             <Col>
-                                <Text type="secondary">+2.3% from last month</Text>
+                                <Text type="secondary" style={{ color: 'rgba(255, 255, 255, 0.45)' }}>+2.3% from last month</Text>
                             </Col>
                         </Row>
-                        <Progress percent={95.2} status="success" showInfo={false} />
+                        <Progress percent={95.2} strokeColor="#52c41a" trailColor="rgba(255, 255, 255, 0.05)" showInfo={false} style={{ marginTop: 12 }} />
                     </Card>
                 </Col>
                 <Col xs={24} lg={12}>
-                    <Card title="Avg. Decision Time" className="dashboard-card">
+                    <Card title={<span style={{ color: '#fff' }}>Avg. Decision Time</span>} className="glass-card">
                         <Row align="middle" gutter={16}>
                             <Col>
                                 <Statistic
                                     value={4.2}
                                     suffix="min"
-                                    valueStyle={{ color: '#1890ff' }}
+                                    valueStyle={{ color: '#8b5cf6' }}
                                     prefix={<ArrowDownOutlined />}
                                 />
                             </Col>
                             <Col>
-                                <Text type="secondary">-30% faster than manual</Text>
+                                <Text type="secondary" style={{ color: 'rgba(255, 255, 255, 0.45)' }}>-30% faster than manual</Text>
                             </Col>
                         </Row>
+                        <Progress percent={70} strokeColor="#8b5cf6" trailColor="rgba(255, 255, 255, 0.05)" showInfo={false} style={{ marginTop: 12 }} />
                     </Card>
                 </Col>
             </Row>
 
             {/* Recent Proposals */}
-            <Card title="Recent Proposals" className="dashboard-card">
+            <Card title={<span style={{ color: '#fff' }}>Recent Proposals</span>} className="glass-card">
                 <Table
                     dataSource={recentProposals}
                     columns={columns}

@@ -28,6 +28,7 @@ export interface Conversation {
     isChallenge?: boolean;
     isResponse?: boolean;
     evidence?: string;
+    source?: string;
 }
 
 export interface Round {
@@ -91,6 +92,7 @@ const mapDjangoToConversation = (djangoData: any): Conversation => ({
     isChallenge: djangoData.metadata?.isChallenge,
     isResponse: djangoData.metadata?.isResponse,
     evidence: djangoData.metadata?.evidence,
+    source: djangoData.metadata?.source,
 });
 
 export const ProposalProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -199,68 +201,115 @@ export const ProposalProvider: React.FC<{ children: ReactNode }> = ({ children }
             { name: 'Finance Agent', domain: 'finance' },
             { name: 'HR Agent', domain: 'hr' },
             { name: 'Ops Agent', domain: 'ops' },
-            { name: 'Security Agent', domain: 'security' }
+            { name: 'Security Agent', domain: 'security' },
+            { name: 'Legal Agent', domain: 'legal' }
         ];
 
         const roundsCount = 5;
         const messagesToSave: any[] = [];
 
-        // Domain-specific evidence snippets
-        const evidenceBase: Record<string, any[]> = {
-            'Finance': [
-                { source: 'Q4 Budget Analysis', excerpt: 'Current runway exceeds projections by 20% due to OPEX optimization.' },
-                { source: 'Tax Compliance Audit', excerpt: 'Reallocation of funds between business units is compliant with local regulations.' }
+        const deliberationTemplates: Record<string, string[]> = {
+            'finance': [
+                "I've analyzed the budget impact. We have sufficient runway for this.",
+                "ROI projections look promising, assuming a 12-month payback period.",
+                "We should consider the tax implications of this reallocation.",
+                "I suggest we tighten the cost controls for this initiative.",
+                "Financially sound. I'm ready to move to a vote."
             ],
-            'HR': [
-                { source: 'Retention Survey 2024', excerpt: '85% of employees cited "Growth Opportunities" as their top priority.' },
-                { source: 'Market Salary Index', excerpt: 'Standard roles in this sector have seen a 12% increase in salary expectations.' }
+            'hr': [
+                "From a talent perspective, this aligns with our growth strategy.",
+                "We need to ensure we have the right skillset for implementation.",
+                "This could impact employee retention positively if handled well.",
+                "I suggest we include a training module for the affected teams.",
+                "HR supports this. The cultural fit is strong."
             ],
-            'Operations': [
-                { source: 'Supply Chain Log', excerpt: 'Lead times for hardware acquisition currently average 45 days.' },
-                { source: 'Infrastructure Health', excerpt: 'Current server load is at 88% capacity during peak hours.' }
+            'ops': [
+                "Operations can support this transition with minimal downtime.",
+                "We should optimize the supply chain workflow for this project.",
+                "Scalability check: Our current infrastructure can handle a 20% load increase.",
+                "I suggest a phased rollout to mitigate operational risks.",
+                "Operational readiness confirmed. Proceed."
+            ],
+            'security': [
+                "Security audit required. Initial assessment shows low risk.",
+                "We must ensure compliance with data protection regulations.",
+                "I suggest encrypting all transaction logs for this service.",
+                "Firewall rules updated. Monitoring systems are in place.",
+                "Security protocols met. No objections."
+            ],
+            'legal': [
+                "Reviewing contract terms. Standard clauses seem applicable.",
+                "Regulatory compliance check: No conflicts with existing laws.",
+                "I suggest adding an indemnity clause for vendor interactions.",
+                "Drafting final approval documents. All legal bases covered.",
+                "Legally cleared. Ready for execution."
             ]
         };
 
-        const defaultEvidence = [{ source: 'General Policy', excerpt: 'Proposal aligns with standard corporate operational guidelines.' }];
+        const conclusions = [
+            "Initial consensus reached. Moving to detailed impact assessment.",
+            "Risk mitigation strategies identified. Proceeding to final review.",
+            "Counsel has reached a majority agreement on technical feasibility.",
+            "Counter-arguments addressed. Finalizing executive summary.",
+            "Deliberation complete. Proposal reaches unified consensus for voting."
+        ];
+
+        const evidenceLibrary: Record<string, { source: string, excerpt: string }[]> = {
+            'finance': [
+                { source: 'Q1 Budget Analysis', excerpt: 'Current runway exceeds projections by 20% due to OPEX optimization.' },
+                { source: 'Tax Compliance Audit', excerpt: 'Reallocation of funds between business units is compliant with local regulations.' },
+                { source: 'ROI Projection v2.1', excerpt: 'Expected payback period is 14 months with a 2.5x multiplier on initial investment.' }
+            ],
+            'hr': [
+                { source: 'Retention Survey 2024', excerpt: '85% of employees cited "Growth Opportunities" as their top priority.' },
+                { source: 'Market Salary Index', excerpt: 'Standard roles in this sector have seen a 12% increase in salary expectations.' },
+                { source: 'Skills Gap Analysis', excerpt: 'Current team has 60% coverage for required implementation technologies.' }
+            ],
+            'ops': [
+                { source: 'Supply Chain Log', excerpt: 'Lead times for hardware acquisition currently average 45 days.' },
+                { source: 'Infrastructure Health', excerpt: 'Current server load is at 88% capacity during peak hours.' },
+                { source: 'SLA Performance Report', excerpt: 'Average uptime for critical systems maintained at 99.98% over last quarter.' }
+            ],
+            'security': [
+                { source: 'Vulnerability Assessment', excerpt: 'Zero critical vulnerabilities found in the last penetration test of core services.' },
+                { source: 'Compliance ISO27001', excerpt: 'Section 5.2 - Access controls are fully aligned with industry best practices.' },
+                { source: 'Threat Intelligence Feed', excerpt: 'No active exploits detected targeting our current stack in the last 30 days.' }
+            ],
+            'legal': [
+                { source: 'Master Service Agreement', excerpt: 'Section 12.4 - Liability is clearly defined and capped at $500k.' },
+                { source: 'IP Registry', excerpt: 'Proposed feature name search returned no existing trademarks in relevant jurisdictions.' },
+                { source: 'Regulatory Update (Jan 24)', excerpt: 'Compliance requirements for data residency are met by our current AWS region.' }
+            ]
+        };
 
         for (let round = 1; round <= roundsCount; round++) {
-            // Each agent speaks in each round
-            participants.forEach((agent: any, idx: number) => {
-                let stance = 'neutral';
-                let messageText = '';
-                const seed = Math.random();
+            participants.forEach((agent: any) => {
+                const domain = agent.domain.toLowerCase();
+                const domainTemplates = deliberationTemplates[domain] || [
+                    `Reviewing round ${round} details.`,
+                    `I suggest we keep monitoring the progress.`,
+                    `Supporting the current direction.`,
+                    `Agent ${agent.name} is satisfied with the results.`,
+                    `Final review round complete.`
+                ];
 
-                if (round === 1) {
-                    messageText = `Reviewing "${proposal.title}" from ${agent.name} perspective. Initial check looks positive.`;
-                } else if (round === 2) {
-                    messageText = `Analyzing long-term impacts. I suggest we consider the scalability of this idea.`;
-                } else if (round === 3) {
-                    if (seed > 0.7) {
-                        messageText = `I have minor concerns about the timeline mentioned. Can we expedite?`;
-                        stance = 'challenge';
-                    } else {
-                        messageText = `I agree with the operational feasibility proposed here.`;
-                        stance = 'approve';
-                    }
-                } else if (round === 4) {
-                    messageText = `Given the evidence, this seems like a solid path forward for the organization.`;
-                } else {
-                    messageText = seed > 0.2 ? `Final verdict: Supportive.` : `I will abstain from voting on this as it falls slightly outside my primary jurisdiction.`;
+                // Select evidence for rounds 2 and 4
+                let evidence = null;
+                if ((round === 2 || round === 4) && evidenceLibrary[domain]) {
+                    evidence = evidenceLibrary[domain][round === 2 ? 0 : 1];
                 }
-
-                const msgEvidence = (round === 2 || round === 4) ? (evidenceBase[agent.domain] || defaultEvidence)[idx % 2] : null;
 
                 messagesToSave.push({
                     proposal: proposal.id,
                     agent_name: agent.name,
                     agent_domain: agent.domain,
-                    message: messageText,
+                    message: domainTemplates[round - 1] || domainTemplates[0],
                     round_number: round,
                     is_conclusion: false,
                     metadata: {
-                        isChallenge: stance === 'challenge',
-                        evidence: msgEvidence ? msgEvidence.excerpt : undefined,
-                        source: msgEvidence ? msgEvidence.source : undefined
+                        isChallenge: round === 3 && Math.random() > 0.7,
+                        evidence: evidence?.excerpt,
+                        source: evidence?.source
                     }
                 });
             });
@@ -270,7 +319,7 @@ export const ProposalProvider: React.FC<{ children: ReactNode }> = ({ children }
                 proposal: proposal.id,
                 agent_name: 'Council Lead',
                 agent_domain: 'system',
-                message: `Round ${round} concluded. Consensus is building around ${round < 3 ? 'initial assessment' : 'execution details'}.`,
+                message: conclusions[round - 1],
                 round_number: round,
                 is_conclusion: true,
                 metadata: {}
@@ -278,10 +327,13 @@ export const ProposalProvider: React.FC<{ children: ReactNode }> = ({ children }
         }
 
         try {
-            // Save all messages in sequence (ideally batch, but sequential for simplicity here)
-            for (const msg of messagesToSave) {
-                await apiClient.post('/proposals/messages/', msg);
-            }
+            // Sequential posts for order (since user wants it "quick", we just fire them)
+            // In a real app, a batch endpoint is better
+            await Promise.all(messagesToSave.map(msg => apiClient.post('/proposals/messages/', msg)));
+
+            // Set status to voting after 5 rounds
+            await apiClient.patch(`/proposals/${proposal.id}/`, { status: 'voting' });
+
             await refreshProposals();
         } catch (error) {
             console.error('Error generating deliberation:', error);
@@ -297,23 +349,38 @@ export const ProposalProvider: React.FC<{ children: ReactNode }> = ({ children }
                 proposal: proposalId,
                 agent_name: 'User (Admin)',
                 agent_domain: 'admin',
-                message: `REQUEST FOR INFO: ${query}`,
+                message: `QUERY: ${query}`,
                 round_number: nextRound,
                 metadata: { isChallenge: true }
             });
 
             const activeParticipants = agents.filter(a => a.active && a.domain !== 'ceo');
-            for (const agent of activeParticipants) {
+            const participants = activeParticipants.length > 0 ? activeParticipants : [
+                { name: 'Finance Agent', domain: 'finance' },
+                { name: 'Ops Agent', domain: 'ops' }
+            ];
+
+            for (const agent of participants) {
                 await apiClient.post('/proposals/messages/', {
                     proposal: proposalId,
                     agent_name: agent.name,
                     agent_domain: agent.domain,
-                    message: `Understood. Regarding "${query}", we will update our models.`,
+                    message: `Response to "${query}": We have reviewed the data and suggest proceeding with the original plan with minor adjustments.`,
                     round_number: nextRound,
                     metadata: { isResponse: true }
                 });
             }
 
+            await apiClient.post('/proposals/messages/', {
+                proposal: proposalId,
+                agent_name: 'Council Lead',
+                agent_domain: 'system',
+                message: `Final consensus reached after query. Moving to voting phase.`,
+                round_number: nextRound,
+                is_conclusion: true
+            });
+
+            await apiClient.patch(`/proposals/${proposalId}/`, { status: 'voting' });
             await refreshProposals();
         } catch (error) {
             console.error('Error adding info request:', error);

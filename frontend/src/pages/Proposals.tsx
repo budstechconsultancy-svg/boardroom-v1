@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Card, Table, Tag, Button, Space, Input, Select, message, Spin } from 'antd';
+import { Card, Table, Tag, Button, Space, Input, Select, message, Spin, Typography } from 'antd';
 import { PlusOutlined, SearchOutlined, PrinterOutlined, DownloadOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import CreateProposalModal from '../components/CreateProposalModal';
 import { useProposals } from '../contexts/ProposalContext';
 
 const { Option } = Select;
+const { Text } = Typography;
 const antIcon = <LoadingOutlined style={{ fontSize: 24 }} spin />;
 
 const Proposals: React.FC = () => {
@@ -55,21 +56,21 @@ const Proposals: React.FC = () => {
             dataIndex: 'id',
             key: 'id',
             width: 100,
-            render: (id: string | number) => `P-${id.toString().padStart(3, '0')}`
+            render: (id: string | number) => <Text strong style={{ color: '#8b5cf6' }}>{`P-${id.toString().padStart(4, '0')}`}</Text>
         },
-        { title: 'Title', dataIndex: 'title', key: 'title' },
+        { title: 'Title', dataIndex: 'title', key: 'title', render: (text: string) => <Text style={{ color: '#fff' }}>{text}</Text> },
         {
             title: 'Domain',
             dataIndex: 'domain',
             key: 'domain',
-            render: (d: string) => <Tag>{d}</Tag>,
+            render: (d: string) => <Tag style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#fff' }}>{d}</Tag>,
         },
         {
             title: 'Risk',
             dataIndex: 'riskTier',
             key: 'riskTier',
             render: (r: string) => (
-                <Tag color={r === 'high' ? 'red' : r === 'medium' ? 'orange' : 'green'}>
+                <Tag color={r === 'high' ? 'error' : r === 'medium' ? 'warning' : 'success'} style={{ background: 'transparent' }}>
                     {(r || 'medium').toUpperCase()}
                 </Tag>
             ),
@@ -78,25 +79,30 @@ const Proposals: React.FC = () => {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
-            render: (s: string) => <Tag color="processing">{(s || 'deliberating').replace('_', ' ').toUpperCase()}</Tag>,
+            render: (s: string) => (
+                <Tag color={s === 'approved' ? 'success' : s === 'rejected' ? 'error' : '#8b5cf6'} style={{ background: 'transparent' }}>
+                    {(s || 'deliberating').replace('_', ' ').toUpperCase()}
+                </Tag>
+            ),
         },
         {
             title: 'Confidence',
             dataIndex: 'confidence',
             key: 'confidence',
-            render: (c: number) => `${((c || 0) * 100).toFixed(0)}%`,
+            render: (c: number) => <Text style={{ color: '#fff' }}>{`${((c || 0) * 100).toFixed(0)}%`}</Text>,
         },
         {
             title: 'Created',
             dataIndex: 'createdAt',
             key: 'createdAt',
+            render: (d: string) => <Text type="secondary" style={{ fontSize: 13 }}>{d}</Text>
         },
         {
             title: 'Actions',
             key: 'actions',
             render: (_: any, record: any) => (
-                <Button type="link" onClick={() => navigate(`/proposals/${record.id}`)}>
-                    View
+                <Button type="link" onClick={() => navigate(`/proposals/${record.id}`)} style={{ color: '#8b5cf6' }}>
+                    Analyze Details
                 </Button>
             ),
         },
@@ -104,8 +110,8 @@ const Proposals: React.FC = () => {
 
     if (loading) {
         return (
-            <div style={{ textAlign: 'center', padding: '50px' }}>
-                <Spin indicator={antIcon} tip="Loading Proposals..." />
+            <div style={{ textAlign: 'center', padding: '100px' }}>
+                <Spin indicator={<LoadingOutlined style={{ fontSize: 40, color: '#8b5cf6' }} spin />} tip="Synchronizing Proposal Repository..." />
             </div>
         );
     }
@@ -113,22 +119,25 @@ const Proposals: React.FC = () => {
     return (
         <div>
             <Card
-                title="Proposals"
+                className="glass-card"
+                title={<span style={{ color: '#fff', fontSize: 18, fontWeight: 600 }}>Proposals Repository</span>}
                 extra={
-                    <Space>
-                        <Button icon={<PrinterOutlined />} onClick={handlePrint}>Print</Button>
-                        <Button icon={<DownloadOutlined />} onClick={handleExportPDF}>Export PDF</Button>
-                        <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>
+                    <Space size={12}>
+                        <Button icon={<PrinterOutlined />} onClick={handlePrint} style={{ background: 'rgba(255, 255, 255, 0.05)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.1)' }}>Print</Button>
+                        <Button icon={<DownloadOutlined />} onClick={handleExportPDF} style={{ background: 'rgba(255, 255, 255, 0.05)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.1)' }}>Export PDF</Button>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)} style={{ height: 36 }}>
                             New Proposal
                         </Button>
                     </Space>
                 }
+                bodyStyle={{ padding: '0' }}
             >
                 <Table
-                    dataSource={proposals}
+                    dataSource={[...proposals].sort((a, b) => Number(b.id) - Number(a.id))}
                     columns={columns}
                     rowKey="id"
-                    pagination={{ pageSize: 10 }}
+                    pagination={{ pageSize: 10, position: ['bottomCenter'] }}
+                    style={{ padding: '0 24px 24px 24px' }}
                 />
             </Card>
 
