@@ -1,21 +1,16 @@
-"""
-BoardRoom Database Module.
-
-Handles database connections, sessions, and base model configuration for MySQL.
-"""
-
+from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import QueuePool
 
 from .config import settings
+from .models.base import Base
 
 # Create async engine for MySQL
-# Note: Using aiomysql for async support
 ASYNC_DATABASE_URL = settings.database.url.replace(
     "mysql+pymysql",
     "mysql+aiomysql"
@@ -55,9 +50,6 @@ SyncSessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
 )
-
-# Base class for all models
-Base = declarative_base()
 
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
@@ -106,34 +98,27 @@ async def close_database():
     await async_engine.dispose()
 
 
-# Tenant isolation middleware
 class TenantContext:
     """Thread-local storage for tenant context."""
-    
     _tenant_id: str = None
     
     @classmethod
     def set_tenant(cls, tenant_id: str):
-        """Set current tenant ID."""
         cls._tenant_id = tenant_id
     
     @classmethod
     def get_tenant(cls) -> str:
-        """Get current tenant ID."""
         if cls._tenant_id is None:
             raise ValueError("Tenant context not set")
         return cls._tenant_id
     
     @classmethod
     def clear_tenant(cls):
-        """Clear tenant context."""
         cls._tenant_id = None
 
 
-# Add tenant filter to all queries
 @event.listens_for(Session, "do_orm_execute")
 def _add_tenant_filter(orm_execute_state):
-    """Automatically filter queries by tenant_id."""
     if (
         orm_execute_state.is_select
         and not orm_execute_state.is_column_load
@@ -141,12 +126,10 @@ def _add_tenant_filter(orm_execute_state):
     ):
         try:
             tenant_id = TenantContext.get_tenant()
-            # Add tenant filter to mapper entities that have tenant_id
             mapper = orm_execute_state.bind_mapper
             if mapper and hasattr(mapper.class_, "tenant_id"):
                 orm_execute_state.statement = orm_execute_state.statement.filter_by(
                     tenant_id=tenant_id
                 )
         except ValueError:
-            # No tenant context set, skip filtering
             pass

@@ -11,6 +11,7 @@ const Admin: React.FC = () => {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [form] = Form.useForm();
+    const [messageApi, contextHolder] = message.useMessage();
 
     const fetchAdminData = async () => {
         setLoading(true);
@@ -31,7 +32,7 @@ const Admin: React.FC = () => {
             form.setFieldsValue(formValues);
         } catch (error) {
             console.error('Error fetching admin data:', error);
-            message.error('Failed to load admin data.');
+            messageApi.error('Failed to load admin data.');
         } finally {
             setLoading(false);
         }
@@ -52,11 +53,11 @@ const Admin: React.FC = () => {
                     await apiClient.post('/settings/', { key, value: values[key] });
                 }
             }
-            message.success('Settings saved successfully!');
+            messageApi.success('Settings saved successfully!');
             fetchAdminData();
         } catch (error) {
             console.error('Error saving settings:', error);
-            message.error('Failed to save settings.');
+            messageApi.error('Failed to save settings.');
         } finally {
             setLoading(false);
         }
@@ -73,6 +74,7 @@ const Admin: React.FC = () => {
 
     return (
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+            {contextHolder}
             <Title level={3} style={{ color: '#fff', marginBottom: 24 }}>System Administration</Title>
             <Tabs
                 defaultActiveKey="settings"

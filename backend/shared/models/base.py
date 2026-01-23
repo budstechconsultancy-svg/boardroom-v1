@@ -9,10 +9,13 @@ from typing import Any
 from sqlalchemy import Column, DateTime, String, Text, event
 from sqlalchemy.dialects.mysql import CHAR
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 
-# Base class for all models
-Base = declarative_base()
+
+# Base class for all models using modern DeclarativeBase
+class Base(DeclarativeBase):
+    """Modern SQLAlchemy 2.0 base class."""
+    __allow_unmapped__ = True
 
 
 def generate_uuid() -> str:
@@ -39,9 +42,10 @@ class TimestampMixin:
 
 class TenantMixin:
     """Mixin for multi-tenant models."""
+    __allow_unmapped__ = True
     
     @declared_attr
-    def tenant_id(cls) -> Column:
+    def tenant_id(cls):
         return Column(
             CHAR(36),
             nullable=False,
@@ -81,6 +85,7 @@ class BaseModel(Base, TimestampMixin):
     """Abstract base model with common fields."""
     
     __abstract__ = True
+    __allow_unmapped__ = True
     
     id = Column(
         CHAR(36),

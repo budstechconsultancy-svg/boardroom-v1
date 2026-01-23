@@ -110,8 +110,9 @@ class Tenant(BaseModel):
     safe_list = Column(JSON, default=list)
     
     # Relationships
-    users = relationship("User", back_populates="tenant", lazy="dynamic")
-    connectors = relationship("Connector", back_populates="tenant", lazy="dynamic")
+    # TODO: Fix foreign key configuration for these relationships
+    # users = relationship("User", back_populates="tenant", lazy="dynamic", foreign_keys="User.tenant_id")
+    # connectors = relationship("Connector", back_populates="tenant", lazy="dynamic", foreign_keys="Connector.tenant_id")
     
     def __repr__(self) -> str:
         return f"<Tenant(id={self.id}, name={self.name}, plan={self.plan})>"

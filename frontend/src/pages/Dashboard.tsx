@@ -44,16 +44,16 @@ const Dashboard: React.FC = () => {
     // Active = Currently in deliberation (Agents are working)
     const activeProposals = proposals.filter(p => p.status === 'deliberating').length;
     // Pending = Waiting for vote (Agents are done, system/humans resolving)
-    const pendingApprovals = proposals.filter(p => p.status === 'voting').length;
-    const autoExecuted = proposals.filter(p => p.status === 'approved').length;
+    const pendingApprovals = proposals.filter(p => p.status === 'voting' || p.status === 'pending_ceo').length;
+    const autoExecuted = proposals.filter(p => p.status === 'executed' || p.status === 'approved').length;
 
-    const completedProposals = proposals.filter(p => ['approved', 'rejected'].includes(p.status)).length;
+    const completedProposals = proposals.filter(p => ['approved', 'rejected', 'executed'].includes(p.status)).length;
     const rejectedProposals = proposals.filter(p => p.status === 'rejected').length;
     const overrideRate = completedProposals > 0 ? ((rejectedProposals / completedProposals) * 100).toFixed(1) : '0';
 
-    // Calculate Decision Accuracy (percentage of approved proposals)
-    const decisionAccuracy = completedProposals > 0 
-        ? ((autoExecuted / completedProposals) * 100).toFixed(1) 
+    // Calculate Decision Accuracy (percentage of approved/executed proposals)
+    const decisionAccuracy = completedProposals > 0
+        ? ((autoExecuted / completedProposals) * 100).toFixed(1)
         : '0';
 
     // Calculate Avg Decision Time (average based on number of discussions - simulated)
@@ -61,7 +61,6 @@ const Dashboard: React.FC = () => {
     const baseTime = 4.2; // minutes
     const avgDecisionTime = (baseTime + (proposals.length * 0.1)).toFixed(1);
 
-    // Sample static data for dashboard
     const kpiData = [
         { title: 'Active Proposals', value: activeProposals, icon: <ClockCircleOutlined />, color: '#faad14' },
         { title: 'Pending Approvals', value: pendingApprovals, icon: <SyncOutlined />, color: '#8b5cf6' },

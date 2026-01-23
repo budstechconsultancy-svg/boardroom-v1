@@ -51,7 +51,7 @@ class EvidenceReference(TenantBaseModel):
     relevance_score = Column(Float, default=0.0)
     
     # Metadata
-    metadata = Column(JSON, default=dict)
+    meta_data = Column(JSON, default=dict)
     
     # Query that retrieved this evidence
     retrieval_query = Column(Text, nullable=True)
@@ -105,7 +105,7 @@ class EvidenceArtifact(TenantBaseModel):
     chunk_count = Column(String(10), default="0")
     
     # Metadata
-    metadata = Column(JSON, default=dict)
+    meta_data = Column(JSON, default=dict)
     
     # Retention
     retention_until = Column(String(50), nullable=True)

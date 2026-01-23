@@ -42,11 +42,13 @@ class User(TenantBaseModel):
     
     Users belong to a tenant and have roles that determine their permissions.
     """
+    __allow_unmapped__ = True
     
     __tablename__ = "users"
     
     # Tenant relationship
-    tenant = relationship("Tenant", back_populates="users")
+    # TODO: Fix foreign key configuration
+    # tenant = relationship("Tenant", back_populates="users")
     
     # Authentication
     email = Column(String(255), nullable=False, index=True)

@@ -93,7 +93,8 @@ class Proposal(TenantBaseModel):
     tradeoffs = Column(JSON, default=list)
     
     # Relationships
-    rounds = relationship("Round", back_populates="proposal", lazy="dynamic", order_by="Round.round_number")
+    # Relationships
+    rounds = relationship("Round", back_populates="proposal", order_by="Round.round_number")
     evidence_references = relationship("EvidenceReference", back_populates="proposal", lazy="dynamic")
     execution_records = relationship("ExecutionRecord", back_populates="proposal", lazy="dynamic")
     
@@ -129,9 +130,9 @@ class Round(TenantBaseModel):
     summary = Column(LONGTEXT, nullable=True)
     
     # Relationships
-    contributions = relationship("AgentContribution", back_populates="round", lazy="dynamic")
-    challenges = relationship("Challenge", back_populates="round", lazy="dynamic")
-    votes = relationship("Vote", back_populates="round", lazy="dynamic")
+    contributions = relationship("AgentContribution", back_populates="round")
+    challenges = relationship("Challenge", back_populates="round")
+    votes = relationship("Vote", back_populates="round")
     
     def __repr__(self) -> str:
         return f"<Round(proposal_id={self.proposal_id}, number={self.round_number})>"

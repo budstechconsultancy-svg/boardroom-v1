@@ -107,7 +107,7 @@ class AuditLog(TenantBaseModel):
     event_hash = Column(String(64), nullable=False)
     
     # Metadata
-    metadata = Column(JSON, default=dict)
+    meta_data = Column(JSON, default=dict)
     
     def __repr__(self) -> str:
         return f"<AuditLog(id={self.id}, event={self.event_type})>"

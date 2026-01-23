@@ -68,7 +68,9 @@ export const AgentProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         try {
             setLoading(true);
             const response = await api.get('/agents/');
-            const mappedAgents = response.data.map(mapDjangoToAgent);
+            // Backend returns { agents: [...], total: ... }
+            const agentList = response.data.agents || [];
+            const mappedAgents = agentList.map(mapDjangoToAgent);
             setAgents(mappedAgents);
         } catch (error) {
             console.error('Failed to fetch agents:', error);

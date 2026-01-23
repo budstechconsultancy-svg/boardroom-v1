@@ -46,7 +46,8 @@ class Connector(TenantBaseModel):
     __tablename__ = "connectors"
     
     # Tenant relationship
-    tenant = relationship("Tenant", back_populates="connectors")
+    # TODO: Fix foreign key configuration
+    # tenant = relationship("Tenant", back_populates="connectors")
     
     # Connector identity
     name = Column(String(100), nullable=False)

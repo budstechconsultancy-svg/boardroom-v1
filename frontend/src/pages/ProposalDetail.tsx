@@ -132,7 +132,7 @@ const ProposalDetail: React.FC = () => {
                                 <Progress
                                     type="circle"
                                     percent={(proposal.confidence || 0) * 100}
-                                    width={45}
+                                    size={45}
                                     strokeColor="#8b5cf6"
                                     trailColor="rgba(255, 255, 255, 0.05)"
                                     format={() => null}
@@ -153,9 +153,12 @@ const ProposalDetail: React.FC = () => {
                         styles={{ body: { flex: 1, padding: '24px', overflowY: 'auto' } }}
                         extra={<Button type="link" onClick={refreshProposals} icon={<SyncOutlined />} style={{ color: '#8b5cf6' }}>Refresh</Button>}
                     >
-                        <Timeline mode="left">
-                            {rounds.map((r, i) => (
-                                <Timeline.Item key={i} color="#8b5cf6" label={<Text style={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: 12 }}>RD {r.round}</Text>}>
+                        <Timeline
+                            mode="left"
+                            items={rounds.map((r, i) => ({
+                                color: "#8b5cf6",
+                                label: <Text style={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: 12 }}>RD {r.round}</Text>,
+                                children: (
                                     <div style={{ marginBottom: 24 }}>
                                         <Tag style={{ background: 'rgba(139, 92, 246, 0.15)', border: 'none', color: '#fff', marginBottom: 16 }}>{r.phase}</Tag>
 
@@ -224,10 +227,10 @@ const ProposalDetail: React.FC = () => {
                                             </div>
                                         )}
                                     </div>
-                                </Timeline.Item>
-                            ))}
-                            <div ref={chatEndRef} />
-                        </Timeline>
+                                )
+                            }))}
+                        />
+                        <div ref={chatEndRef} />
                     </Card>
                 </Col>
 

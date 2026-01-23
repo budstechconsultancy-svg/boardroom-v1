@@ -1,11 +1,8 @@
-"""
-Agent models for CXO domain agents.
-"""
-
+from __future__ import annotations
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, Column, Enum as SQLEnum, Float, ForeignKey, String, Text
+from sqlalchemy import Boolean, Column, Enum as SQLEnum, Float, ForeignKey, String, Text, Integer
 from sqlalchemy.dialects.mysql import CHAR, JSON, LONGTEXT
 from sqlalchemy.orm import relationship
 
@@ -31,10 +28,8 @@ class AgentType(str, Enum):
 class Agent(TenantBaseModel):
     """
     CXO Agent configuration and state.
-    
-    Each agent represents a virtual C-level executive with domain expertise.
     """
-    
+    __allow_unmapped__ = True
     __tablename__ = "agents"
     
     # Agent identity
@@ -43,7 +38,7 @@ class Agent(TenantBaseModel):
     description = Column(Text, nullable=True)
     
     # Agent persona
-    persona = Column(Text, nullable=True)  # System prompt/persona
+    persona = Column(Text, nullable=True)
     
     # Capabilities
     can_read = Column(Boolean, default=True)
@@ -52,13 +47,13 @@ class Agent(TenantBaseModel):
     can_vote = Column(Boolean, default=True)
     can_challenge = Column(Boolean, default=True)
     
-    # Voting weight (0.0 - 2.0, default 1.0)
+    # Voting weight
     vote_weight = Column(Float, default=1.0)
     
     # RAG configuration
     rag_enabled = Column(Boolean, default=True)
     rag_collection_name = Column(String(100), nullable=True)
-    rag_sources = Column(JSON, default=list)  # List of data sources
+    rag_sources = Column(JSON, default=list)
     embedding_model = Column(String(100), default="text-embedding-3-small")
     
     # LLM configuration
@@ -82,40 +77,24 @@ class Agent(TenantBaseModel):
         return f"<Agent(id={self.id}, type={self.agent_type}, name={self.name})>"
 
 
-# Add missing import
-from sqlalchemy import Integer
-
-
 class AgentMemory(TenantBaseModel):
     """
     Encrypted domain memory for agents.
-    
-    Stores learned patterns, preferences, and context for each agent.
     """
-    
+    __allow_unmapped__ = True
     __tablename__ = "agent_memories"
     
-    # Parent agent
     agent_id = Column(CHAR(36), ForeignKey("agents.id"), nullable=False, index=True)
     agent = relationship("Agent", back_populates="memories")
     
-    # Memory type
     memory_type = Column(String(50), nullable=False, index=True)
-    # e.g., "decision_pattern", "user_preference", "domain_context"
-    
-    # Memory key for retrieval
     memory_key = Column(String(255), nullable=False, index=True)
-    
-    # Encrypted content
     content_encrypted = Column(LONGTEXT, nullable=False)
     
-    # Metadata
-    metadata = Column(JSON, default=dict)
+    # Renamed from metadata to avoid SQLAlchemy 2.0 reserve conflict
+    meta_data = Column(JSON, default=dict)
     
-    # Embedding for similarity search
     embedding_id = Column(String(255), nullable=True)
-    
-    # Expiry
     expires_at = Column(String(50), nullable=True)
     
     def __repr__(self) -> str:
@@ -126,18 +105,14 @@ class AgentConfig(TenantBaseModel):
     """
     Agent configuration overrides per tenant.
     """
-    
+    __allow_unmapped__ = True
     __tablename__ = "agent_configs"
     
-    # Parent agent
     agent_id = Column(CHAR(36), ForeignKey("agents.id"), nullable=False, index=True)
     agent = relationship("Agent", back_populates="configs")
     
-    # Config key-value
     config_key = Column(String(100), nullable=False, index=True)
     config_value = Column(JSON, nullable=True)
-    
-    # Description
     description = Column(Text, nullable=True)
     
     def __repr__(self) -> str:

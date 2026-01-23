@@ -13,7 +13,7 @@ interface MeetingSession {
     status: string;
     total_rounds: number;
     summary: {
-        vote_counts: {APPROVE: number; DISAPPROVE: number; ABSTAIN: number};
+        vote_counts: { APPROVE: number; DISAPPROVE: number; ABSTAIN: number };
         overall_recommendation: string;
     };
 }
@@ -24,7 +24,7 @@ interface DiscussionRound {
     agent_name: string;
     agent_domain: string;
     statement: string;
-    evidence: Array<{type: string; description: string; reference: string}>;
+    evidence: Array<{ type: string; description: string; reference: string }>;
     suggestions: string[];
     created_at: string;
 }
@@ -84,9 +84,10 @@ const Meetings: React.FC = () => {
     const handleTriggerMeeting = async () => {
         setTriggering(true);
         try {
-            const response = await apiClient.post('/meetings/meetings/trigger/');
+            const response = await apiClient.post('/proposals/trigger-meeting');
             message.success('Board meeting completed successfully!');
-            await fetchSessions();
+            // Transform response to match session format if needed, or just refresh
+            await fetchSessions(); // For now, we rely on the refresh, but in a real app we'd add the new session directly
         } catch (error: any) {
             console.error('Error triggering meeting:', error);
             message.error(error.response?.data?.error || 'Failed to trigger meeting');
@@ -216,124 +217,124 @@ const Meetings: React.FC = () => {
                         </div>
                     ) : rounds.length > 0 ? (
                         <>
-                    {/* Discussion Timeline */}
-                    <div style={{ marginBottom: 24 }}>
-                        <Title level={5} style={{ color: '#8b5cf6', marginBottom: 16 }}>Discussion Rounds ({rounds.length})</Title>
-                        <Timeline
-                            items={rounds.map((round, index) => ({
-                                dot: <div style={{ backgroundColor: '#8b5cf6', width: 12, height: 12, borderRadius: '50%' }} />,
-                                children: (
-                                    <Card
-                                        style={{
-                                            backgroundColor: 'rgba(139, 92, 246, 0.08)',
-                                            border: '1px solid rgba(139, 92, 246, 0.2)',
-                                            marginBottom: 12
-                                        }}
-                                    >
-                                        <div style={{ color: '#8b5cf6', fontWeight: 'bold', marginBottom: 8 }}>
-                                            Round {round.round_number} - {round.agent_name}
-                                        </div>
-                                        <Text style={{ color: '#fff', display: 'block', marginBottom: 12, lineHeight: 1.6 }}>
-                                            {round.statement}
-                                        </Text>
-                                        
-                                        {/* Evidence */}
-                                        {round.evidence && round.evidence.length > 0 && (
-                                            <div style={{ marginBottom: 12 }}>
-                                                <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, fontWeight: 'bold' }}>
-                                                    📊 EVIDENCE:
+                            {/* Discussion Timeline */}
+                            <div style={{ marginBottom: 24 }}>
+                                <Title level={5} style={{ color: '#8b5cf6', marginBottom: 16 }}>Discussion Rounds ({rounds.length})</Title>
+                                <Timeline
+                                    items={rounds.map((round, index) => ({
+                                        dot: <div style={{ backgroundColor: '#8b5cf6', width: 12, height: 12, borderRadius: '50%' }} />,
+                                        children: (
+                                            <Card
+                                                style={{
+                                                    backgroundColor: 'rgba(139, 92, 246, 0.08)',
+                                                    border: '1px solid rgba(139, 92, 246, 0.2)',
+                                                    marginBottom: 12
+                                                }}
+                                            >
+                                                <div style={{ color: '#8b5cf6', fontWeight: 'bold', marginBottom: 8 }}>
+                                                    Round {round.round_number} - {round.agent_name}
+                                                </div>
+                                                <Text style={{ color: '#fff', display: 'block', marginBottom: 12, lineHeight: 1.6 }}>
+                                                    {round.statement}
                                                 </Text>
-                                                {round.evidence.map((e, i) => (
-                                                    <div key={i} style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginTop: 4, marginLeft: 16 }}>
-                                                        <span style={{ color: '#8b5cf6' }}>•</span> {e.description} ({e.reference})
+
+                                                {/* Evidence */}
+                                                {round.evidence && round.evidence.length > 0 && (
+                                                    <div style={{ marginBottom: 12 }}>
+                                                        <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, fontWeight: 'bold' }}>
+                                                            📊 EVIDENCE:
+                                                        </Text>
+                                                        {round.evidence.map((e, i) => (
+                                                            <div key={i} style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginTop: 4, marginLeft: 16 }}>
+                                                                <span style={{ color: '#8b5cf6' }}>•</span> {e.description} ({e.reference})
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                                )}
 
-                                        {/* Suggestions */}
-                                        {round.suggestions && round.suggestions.length > 0 && (
-                                            <div>
-                                                <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, fontWeight: 'bold' }}>
-                                                    💡 SUGGESTIONS:
-                                                </Text>
-                                                {round.suggestions.map((s, i) => (
-                                                    <div key={i} style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginTop: 4, marginLeft: 16 }}>
-                                                        <span style={{ color: '#8b5cf6' }}>•</span> {s}
+                                                {/* Suggestions */}
+                                                {round.suggestions && round.suggestions.length > 0 && (
+                                                    <div>
+                                                        <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, fontWeight: 'bold' }}>
+                                                            💡 SUGGESTIONS:
+                                                        </Text>
+                                                        {round.suggestions.map((s, i) => (
+                                                            <div key={i} style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginTop: 4, marginLeft: 16 }}>
+                                                                <span style={{ color: '#8b5cf6' }}>•</span> {s}
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                ))}
+                                                )}
+                                            </Card>
+                                        )
+                                    }))}
+                                />
+                            </div>
+
+                            {/* Vote Summary */}
+                            <div style={{ marginTop: 24, padding: 16, backgroundColor: 'rgba(139, 92, 246, 0.1)', borderRadius: 8 }}>
+                                <Title level={5} style={{ color: '#8b5cf6', marginBottom: 16 }}>🗳️ Final Voting Results</Title>
+                                <Row gutter={[16, 16]}>
+                                    <Col xs={24} sm={8}>
+                                        <div style={{ textAlign: 'center' }}>
+                                            <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)', marginBottom: 8 }}>APPROVE</div>
+                                            <div style={{ fontSize: 28, fontWeight: 'bold', color: '#52c41a' }}>
+                                                {selectedSession.summary?.vote_counts?.APPROVE || 0}
                                             </div>
-                                        )}
-                                    </Card>
-                                )
-                            }))}
-                        />
-                    </div>
-
-                    {/* Vote Summary */}
-                    <div style={{ marginTop: 24, padding: 16, backgroundColor: 'rgba(139, 92, 246, 0.1)', borderRadius: 8 }}>
-                        <Title level={5} style={{ color: '#8b5cf6', marginBottom: 16 }}>🗳️ Final Voting Results</Title>
-                        <Row gutter={[16, 16]}>
-                            <Col xs={24} sm={8}>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)', marginBottom: 8 }}>APPROVE</div>
-                                    <div style={{ fontSize: 28, fontWeight: 'bold', color: '#52c41a' }}>
-                                        {selectedSession.summary?.vote_counts?.APPROVE || 0}
-                                    </div>
-                                </div>
-                            </Col>
-                            <Col xs={24} sm={8}>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)', marginBottom: 8 }}>DISAPPROVE</div>
-                                    <div style={{ fontSize: 28, fontWeight: 'bold', color: '#ff4d4f' }}>
-                                        {selectedSession.summary?.vote_counts?.DISAPPROVE || 0}
-                                    </div>
-                                </div>
-                            </Col>
-                            <Col xs={24} sm={8}>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)', marginBottom: 8 }}>ABSTAIN</div>
-                                    <div style={{ fontSize: 28, fontWeight: 'bold', color: '#faad14' }}>
-                                        {selectedSession.summary?.vote_counts?.ABSTAIN || 0}
-                                    </div>
-                                </div>
-                            </Col>
-                        </Row>
-                        <div style={{ marginTop: 16, textAlign: 'center', padding: 12, backgroundColor: 'rgba(139, 92, 246, 0.15)', borderRadius: 6 }}>
-                            <Text style={{ color: '#fff', fontSize: 14, fontWeight: 'bold' }}>
-                                Overall: <span style={{ color: '#8b5cf6' }}>{selectedSession.summary?.overall_recommendation}</span>
-                            </Text>
-                        </div>
-                    </div>
-
-                    {/* Individual Votes */}
-                    {opinions.length > 0 && (
-                        <Card style={{ marginTop: 16, backgroundColor: 'rgba(31, 24, 55, 0.4)' }}>
-                            <Title level={5} style={{ color: '#8b5cf6', marginBottom: 12 }}>Individual Agent Votes</Title>
-                            <Row gutter={[8, 8]}>
-                                {opinions.map((opinion) => (
-                                    <Col key={opinion.id} xs={24} sm={12} lg={8}>
-                                        <div style={{
-                                            padding: 12,
-                                            backgroundColor: 'rgba(139, 92, 246, 0.08)',
-                                            borderRadius: 6,
-                                            borderLeft: `3px solid ${opinion.vote === 'APPROVE' ? '#52c41a' : opinion.vote === 'DISAPPROVE' ? '#ff4d4f' : '#faad14'}`
-                                        }}>
-                                            <Text style={{ color: '#fff', fontWeight: 'bold', display: 'block', marginBottom: 4 }}>
-                                                {opinion.agent_name}
-                                            </Text>
-                                            <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, display: 'block', marginBottom: 4 }}>
-                                                Vote: <span style={{ color: '#8b5cf6', fontWeight: 'bold' }}>{opinion.vote}</span>
-                                            </Text>
-                                            <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12 }}>
-                                                Confidence: {(opinion.confidence_score * 100).toFixed(0)}%
-                                            </Text>
                                         </div>
                                     </Col>
-                                ))}
-                            </Row>
-                        </Card>
-                    )}
+                                    <Col xs={24} sm={8}>
+                                        <div style={{ textAlign: 'center' }}>
+                                            <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)', marginBottom: 8 }}>DISAPPROVE</div>
+                                            <div style={{ fontSize: 28, fontWeight: 'bold', color: '#ff4d4f' }}>
+                                                {selectedSession.summary?.vote_counts?.DISAPPROVE || 0}
+                                            </div>
+                                        </div>
+                                    </Col>
+                                    <Col xs={24} sm={8}>
+                                        <div style={{ textAlign: 'center' }}>
+                                            <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.65)', marginBottom: 8 }}>ABSTAIN</div>
+                                            <div style={{ fontSize: 28, fontWeight: 'bold', color: '#faad14' }}>
+                                                {selectedSession.summary?.vote_counts?.ABSTAIN || 0}
+                                            </div>
+                                        </div>
+                                    </Col>
+                                </Row>
+                                <div style={{ marginTop: 16, textAlign: 'center', padding: 12, backgroundColor: 'rgba(139, 92, 246, 0.15)', borderRadius: 6 }}>
+                                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: 'bold' }}>
+                                        Overall: <span style={{ color: '#8b5cf6' }}>{selectedSession.summary?.overall_recommendation}</span>
+                                    </Text>
+                                </div>
+                            </div>
+
+                            {/* Individual Votes */}
+                            {opinions.length > 0 && (
+                                <Card style={{ marginTop: 16, backgroundColor: 'rgba(31, 24, 55, 0.4)' }}>
+                                    <Title level={5} style={{ color: '#8b5cf6', marginBottom: 12 }}>Individual Agent Votes</Title>
+                                    <Row gutter={[8, 8]}>
+                                        {opinions.map((opinion) => (
+                                            <Col key={opinion.id} xs={24} sm={12} lg={8}>
+                                                <div style={{
+                                                    padding: 12,
+                                                    backgroundColor: 'rgba(139, 92, 246, 0.08)',
+                                                    borderRadius: 6,
+                                                    borderLeft: `3px solid ${opinion.vote === 'APPROVE' ? '#52c41a' : opinion.vote === 'DISAPPROVE' ? '#ff4d4f' : '#faad14'}`
+                                                }}>
+                                                    <Text style={{ color: '#fff', fontWeight: 'bold', display: 'block', marginBottom: 4 }}>
+                                                        {opinion.agent_name}
+                                                    </Text>
+                                                    <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, display: 'block', marginBottom: 4 }}>
+                                                        Vote: <span style={{ color: '#8b5cf6', fontWeight: 'bold' }}>{opinion.vote}</span>
+                                                    </Text>
+                                                    <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12 }}>
+                                                        Confidence: {(opinion.confidence_score * 100).toFixed(0)}%
+                                                    </Text>
+                                                </div>
+                                            </Col>
+                                        ))}
+                                    </Row>
+                                </Card>
+                            )}
                         </>
                     ) : (
                         <Empty
