@@ -9,7 +9,7 @@ export interface Proposal {
     title: string;
     domain: string;
     description: string;
-    status: 'deliberating' | 'voting' | 'approved' | 'rejected' | 'pending_ceo' | 'executed';
+    status: 'deliberating' | 'voting' | 'approved' | 'rejected' | 'pending_ceo' | 'executed' | 'pending_execution' | 'executing' | 'draft';
     riskTier: 'low' | 'medium' | 'high';
     confidence: number;
     createdAt: string;
@@ -62,7 +62,7 @@ const mapDjangoToProposal = (djangoData: any): Proposal => ({
     description: djangoData.description,
     status: djangoData.status as Proposal['status'],
     riskTier: djangoData.risk_tier as Proposal['riskTier'],
-    confidence: djangoData.confidence,
+    confidence: djangoData.confidence_score || djangoData.confidence || 0,
     createdAt: djangoData.created_at ? new Date(djangoData.created_at).toISOString().split('T')[0] : '',
     proposer: djangoData.proposer,
     impactSummary: djangoData.impact_summary,

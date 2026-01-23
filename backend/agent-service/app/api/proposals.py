@@ -150,6 +150,7 @@ async def trigger_meeting(
                 round_id=rnd.id,
                 agent_id=agent.id,
                 content=generate_analysis(agent.agent_type.value, r_num),
+                confidence_score=0.85 + (random.random() * 0.14), # Random 0.85 - 0.99
                 tenant_id=tenant_id
             )
             session.add(contribution)
@@ -403,6 +404,7 @@ async def run_deliberation_cycle(session, proposal, tenant_id, initial=False, st
                 round_id=rnd.id,
                 agent_id=agent.id,
                 content=content,
+                confidence_score=0.80 + (random.random() * 0.15), # 0.80 - 0.95
                 tenant_id=tenant_id
             )
             session.add(contrib)
@@ -683,3 +685,26 @@ async def list_proposals(
         )
         for p in db_proposals
     ]
+
+
+@router.delete("/{proposal_id}")
+async def delete_proposal(
+    proposal_id: str,
+    tenant_id: str = Query(..., description="Tenant ID"),
+    session = Depends(get_async_session)
+):
+    """Delete a proposal."""
+    query = select(ProposalModel).filter(
+        ProposalModel.id == proposal_id,
+        ProposalModel.tenant_id == tenant_id
+    )
+    result = await session.execute(query)
+    p = result.scalars().first()
+    
+    if not p:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    
+    await session.delete(p)
+    await session.commit()
+    
+    return {"status": "success", "message": "Proposal deleted"}

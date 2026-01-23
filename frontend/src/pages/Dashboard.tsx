@@ -41,10 +41,10 @@ const Dashboard: React.FC = () => {
     }
 
     // Calculate KPI data dynamically
-    // Active = Currently in deliberation (Agents are working)
-    const activeProposals = proposals.filter(p => p.status === 'deliberating').length;
-    // Pending = Waiting for vote (Agents are done, system/humans resolving)
-    const pendingApprovals = proposals.filter(p => p.status === 'voting' || p.status === 'pending_ceo').length;
+    // Active = Currently in progress (deliberating, voting, executing, or pending execution)
+    const activeProposals = proposals.filter(p => ['deliberating', 'voting', 'pending_execution', 'executing'].includes(p.status)).length;
+    // Pending = Waiting for specific action/resolution
+    const pendingApprovals = proposals.filter(p => ['voting', 'pending_ceo', 'pending_execution'].includes(p.status)).length;
     const autoExecuted = proposals.filter(p => p.status === 'executed' || p.status === 'approved').length;
 
     const completedProposals = proposals.filter(p => ['approved', 'rejected', 'executed'].includes(p.status)).length;

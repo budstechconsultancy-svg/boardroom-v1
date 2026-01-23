@@ -146,6 +146,7 @@ const ProposalDetail: React.FC = () => {
             {/* Main Content Area */}
             <Row gutter={24} style={{ flex: 1, overflow: 'hidden' }}>
                 <Col span={16} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+
                     <Card
                         className="glass-card"
                         title={<span style={{ color: '#fff' }}><MessageOutlined style={{ marginRight: 8 }} /> Multi-Round Deliberation</span>}
@@ -153,83 +154,89 @@ const ProposalDetail: React.FC = () => {
                         styles={{ body: { flex: 1, padding: '24px', overflowY: 'auto' } }}
                         extra={<Button type="link" onClick={refreshProposals} icon={<SyncOutlined />} style={{ color: '#8b5cf6' }}>Refresh</Button>}
                     >
-                        <Timeline
-                            mode="left"
-                            items={rounds.map((r, i) => ({
-                                color: "#8b5cf6",
-                                label: <Text style={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: 12 }}>RD {r.round}</Text>,
-                                children: (
-                                    <div style={{ marginBottom: 24 }}>
-                                        <Tag style={{ background: 'rgba(139, 92, 246, 0.15)', border: 'none', color: '#fff', marginBottom: 16 }}>{r.phase}</Tag>
+                        {(loading && !delibs_ready) ? (
+                            <div style={{ textAlign: 'center', padding: '40px' }}>
+                                <Spin tip="Loading Deliberation..." />
+                            </div>
+                        ) : (
+                            <Timeline
+                                mode="left"
+                                items={rounds.map((r, i) => ({
+                                    color: "#8b5cf6",
+                                    label: <Text style={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: 12 }}>RD {r.round}</Text>,
+                                    children: (
+                                        <div style={{ marginBottom: 24 }}>
+                                            <Tag style={{ background: 'rgba(139, 92, 246, 0.15)', border: 'none', color: '#fff', marginBottom: 16 }}>{r.phase}</Tag>
 
-                                        {r.conversations?.map((conv, idx) => (
-                                            <div key={idx} style={{ display: 'flex', marginBottom: 16, alignItems: 'flex-start' }}>
-                                                <Avatar
-                                                    icon={conv.domain === 'admin' ? <UserOutlined /> : <RobotOutlined />}
-                                                    style={{ backgroundColor: getAgentColor(conv.domain), marginRight: 12, minWidth: 32, boxShadow: `0 0 10px ${getAgentColor(conv.domain)}44` }}
-                                                />
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-                                                        <Text strong style={{ marginRight: 8, fontSize: 13, color: '#fff' }}>{conv.agent}</Text>
-                                                        <Text type="secondary" style={{ fontSize: 11 }}>{conv.timestamp}</Text>
-                                                        {conv.isChallenge && <Tag color="error" style={{ marginLeft: 8, fontSize: 10, background: 'transparent' }}>Conflict</Tag>}
-                                                    </div>
-                                                    <div style={{
-                                                        background: conv.isChallenge ? 'rgba(255, 77, 79, 0.05)' : 'rgba(255, 255, 255, 0.03)',
-                                                        padding: '12px 16px',
-                                                        borderRadius: '0 12px 12px 12px',
-                                                        border: `1px solid ${conv.isChallenge ? 'rgba(255, 77, 79, 0.2)' : 'rgba(255, 255, 255, 0.05)'}`,
-                                                        display: 'inline-block',
-                                                        maxWidth: '92%'
-                                                    }}>
-                                                        <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>{conv.message}</Text>
-                                                        {conv.evidence && (
-                                                            <div style={{
-                                                                marginTop: 12,
-                                                                padding: '10px 14px',
-                                                                background: 'rgba(0, 0, 0, 0.2)',
-                                                                borderRadius: 8,
-                                                                borderLeft: `3px solid ${getAgentColor(conv.domain)}`,
-                                                                boxShadow: 'inset 0 0 10px rgba(0,0,0,0.2)'
-                                                            }}>
-                                                                <Space direction="vertical" size={2}>
-                                                                    <Text strong style={{ fontSize: 10, color: getAgentColor(conv.domain), textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                                        <SolutionOutlined style={{ marginRight: 4 }} />
-                                                                        Evidence: {conv.source || 'Council Source'}
-                                                                    </Text>
-                                                                    <Text type="secondary" style={{ fontSize: 13, fontStyle: 'italic', lineHeight: '1.4', color: 'rgba(255, 255, 255, 0.45)' }}>
-                                                                        "{conv.evidence}"
-                                                                    </Text>
-                                                                </Space>
-                                                            </div>
-                                                        )}
+                                            {r.conversations?.map((conv, idx) => (
+                                                <div key={idx} style={{ display: 'flex', marginBottom: 16, alignItems: 'flex-start' }}>
+                                                    <Avatar
+                                                        icon={conv.domain === 'admin' ? <UserOutlined /> : <RobotOutlined />}
+                                                        style={{ backgroundColor: getAgentColor(conv.domain), marginRight: 12, minWidth: 32, boxShadow: `0 0 10px ${getAgentColor(conv.domain)}44` }}
+                                                    />
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                                                            <Text strong style={{ marginRight: 8, fontSize: 13, color: '#fff' }}>{conv.agent}</Text>
+                                                            <Text type="secondary" style={{ fontSize: 11 }}>{conv.timestamp}</Text>
+                                                            {conv.isChallenge && <Tag color="error" style={{ marginLeft: 8, fontSize: 10, background: 'transparent' }}>Conflict</Tag>}
+                                                        </div>
+                                                        <div style={{
+                                                            background: conv.isChallenge ? 'rgba(255, 77, 79, 0.05)' : 'rgba(255, 255, 255, 0.03)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '0 12px 12px 12px',
+                                                            border: `1px solid ${conv.isChallenge ? 'rgba(255, 77, 79, 0.2)' : 'rgba(255, 255, 255, 0.05)'}`,
+                                                            display: 'inline-block',
+                                                            maxWidth: '92%'
+                                                        }}>
+                                                            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>{conv.message}</Text>
+                                                            {conv.evidence && (
+                                                                <div style={{
+                                                                    marginTop: 12,
+                                                                    padding: '10px 14px',
+                                                                    background: 'rgba(0, 0, 0, 0.2)',
+                                                                    borderRadius: 8,
+                                                                    borderLeft: `3px solid ${getAgentColor(conv.domain)}`,
+                                                                    boxShadow: 'inset 0 0 10px rgba(0,0,0,0.2)'
+                                                                }}>
+                                                                    <Space direction="vertical" size={2}>
+                                                                        <Text strong style={{ fontSize: 10, color: getAgentColor(conv.domain), textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                                            <SolutionOutlined style={{ marginRight: 4 }} />
+                                                                            Evidence: {conv.source || 'Council Source'}
+                                                                        </Text>
+                                                                        <Text type="secondary" style={{ fontSize: 13, fontStyle: 'italic', lineHeight: '1.4', color: 'rgba(255, 255, 255, 0.45)' }}>
+                                                                            "{conv.evidence}"
+                                                                        </Text>
+                                                                    </Space>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))}
 
-                                        {r.conclusion && (
-                                            <div style={{
-                                                marginTop: 12,
-                                                padding: '12px 16px',
-                                                background: 'rgba(139, 92, 246, 0.05)',
-                                                borderRadius: 12,
-                                                border: '1px solid rgba(139, 92, 246, 0.2)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: 12
-                                            }}>
-                                                <SyncOutlined style={{ color: '#8b5cf6' }} />
-                                                <div>
-                                                    <Text strong style={{ display: 'block', fontSize: 12, color: '#8b5cf6', textTransform: 'uppercase' }}>Round {r.round} Result</Text>
-                                                    <Text style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.85)' }}>{r.conclusion}</Text>
+                                            {r.conclusion && (
+                                                <div style={{
+                                                    marginTop: 12,
+                                                    padding: '12px 16px',
+                                                    background: 'rgba(139, 92, 246, 0.05)',
+                                                    borderRadius: 12,
+                                                    border: '1px solid rgba(139, 92, 246, 0.2)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 12
+                                                }}>
+                                                    <SyncOutlined style={{ color: '#8b5cf6' }} />
+                                                    <div>
+                                                        <Text strong style={{ display: 'block', fontSize: 12, color: '#8b5cf6', textTransform: 'uppercase' }}>Round {r.round} Result</Text>
+                                                        <Text style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.85)' }}>{r.conclusion}</Text>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )
-                            }))}
-                        />
+                                            )}
+                                        </div>
+                                    )
+                                }))}
+                            />
+                        )}
                         <div ref={chatEndRef} />
                     </Card>
                 </Col>

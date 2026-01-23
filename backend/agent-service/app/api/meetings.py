@@ -49,7 +49,7 @@ async def list_sessions(
             status="completed" if p.current_round >= p.max_rounds else "in_progress",
             total_rounds=p.current_round,
             summary={
-                "vote_counts": {"APPROVE": 0, "REJECT": 0, "ABSTAIN": 0},
+                "vote_counts": {"APPROVE": 0, "DISAPPROVE": 0, "ABSTAIN": 0},
                 "overall_recommendation": p.status.value if hasattr(p.status, 'value') else p.status
             }
         ))
@@ -78,7 +78,7 @@ async def get_session_details(
 
     rounds_data = []
     opinions_data = []
-    vote_summary = {"APPROVE": 0, "REJECT": 0, "ABSTAIN": 0}
+    vote_summary = {"APPROVE": 0, "DISAPPROVE": 0, "ABSTAIN": 0}
     
     # Bulk fetch agents for this tenant to avoid N+1 queries
     agents_query = select(AgentModel).filter(AgentModel.tenant_id == tenant_id)
@@ -90,6 +90,17 @@ async def get_session_details(
     for r in sorted_rounds:
         vote_lookup = {v.voter_agent_id: v for v in r.votes if v.voter_agent_id}
         
+        # Capture standalone votes (for summary) if this is a voting round
+        if r.round_type == "voting":
+             for v in r.votes:
+                  v_val = v.vote.value if hasattr(v.vote, 'value') else v.vote
+                  # Map reject to disapprove
+                  v_key = str(v_val).upper()
+                  if v_key == "REJECT": v_key = "DISAPPROVE"
+                  
+                  if v_key in vote_summary:
+                       vote_summary[v_key] += 1
+
         for c in r.contributions:
             agent = agent_lookup.get(c.agent_id)
             vote_data = vote_lookup.get(c.agent_id)
@@ -115,10 +126,6 @@ async def get_session_details(
                      "rationale": vote_data.rationale,
                      "requires_human_attention": v_val == "reject"
                  })
-                 if r.round_number == p.current_round:
-                      v_key = str(v_val).upper()
-                      if v_key in vote_summary:
-                           vote_summary[v_key] += 1
 
     return MeetingSession(
         id=p.id,

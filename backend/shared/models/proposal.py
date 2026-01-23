@@ -94,9 +94,9 @@ class Proposal(TenantBaseModel):
     
     # Relationships
     # Relationships
-    rounds = relationship("Round", back_populates="proposal", order_by="Round.round_number")
-    evidence_references = relationship("EvidenceReference", back_populates="proposal", lazy="dynamic")
-    execution_records = relationship("ExecutionRecord", back_populates="proposal", lazy="dynamic")
+    rounds = relationship("Round", back_populates="proposal", order_by="Round.round_number", cascade="all, delete-orphan")
+    evidence_references = relationship("EvidenceReference", back_populates="proposal", lazy="dynamic", cascade="all, delete-orphan")
+    execution_records = relationship("ExecutionRecord", back_populates="proposal", lazy="dynamic", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<Proposal(id={self.id}, title={self.title[:50]}, status={self.status})>"
@@ -130,9 +130,9 @@ class Round(TenantBaseModel):
     summary = Column(LONGTEXT, nullable=True)
     
     # Relationships
-    contributions = relationship("AgentContribution", back_populates="round")
-    challenges = relationship("Challenge", back_populates="round")
-    votes = relationship("Vote", back_populates="round")
+    contributions = relationship("AgentContribution", back_populates="round", cascade="all, delete-orphan")
+    challenges = relationship("Challenge", back_populates="round", cascade="all, delete-orphan")
+    votes = relationship("Vote", back_populates="round", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<Round(proposal_id={self.proposal_id}, number={self.round_number})>"
